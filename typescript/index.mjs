@@ -2,7 +2,16 @@ import { readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/client";
 import { StdioClientTransport } from "@modelcontextprotocol/client/stdio";
-import { validator } from "./validate.mjs";
+import Ajv from "ajv";
+import { Ajv2020 } from "ajv/dist/2020.js";
+import addFormats from "ajv-formats";
+
+function validator(schema) {
+  const constructor = schema.$schema?.includes("draft-07") ? Ajv : Ajv2020;
+  const ajv = new constructor({ strict: false, ownProperties: true, allErrors: true });
+  addFormats(ajv);
+  return ajv.compile(schema);
+}
 
 export class ToolCallError extends Error {
   constructor(app, tool, result) {

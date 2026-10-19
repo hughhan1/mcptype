@@ -87,16 +87,18 @@ Both clients resolve names from the nearest `mcptype.lock.json` above the workin
 ## Rust API
 
 ```rust
-use mcptype::{Catalog, Language, generate};
+use mcptype::{Language, Request, compile};
 use std::collections::BTreeMap;
 
 fn main() -> Result<(), mcptype::Error> {
-    let catalog = Catalog::try_from(serde_json::json!({
+    let contract = serde_json::json!({
         "tools": [{"name": "ping", "inputSchema": {"type": "object"}}]
-    }))?;
-    let contracts = BTreeMap::from([("server".into(), catalog)]);
-    let declarations = generate(Language::TypeScript, &contracts);
-    println!("{}", declarations.declarations);
+    });
+    let generated = compile(Request {
+        language: Language::TypeScript,
+        contracts: BTreeMap::from([("server".into(), contract)]),
+    })?;
+    println!("{}", generated.declarations);
     Ok(())
 }
 ```
@@ -115,12 +117,12 @@ from mcptype.compiler import compile
 result = compile({"language": "python", "contracts": contracts})
 ```
 
-`contracts` maps binding names to MCP tool catalogs. Both bindings return `{ "declarations": "..." }` and raise an error for invalid contracts. They do not connect to servers or write files. Runtime clients do not load the compiler.
+`contracts` maps binding names to MCP tool catalogs. Both bindings return `{ "declarations": "..." }`, the file `mcptype generate` writes for that language, and raise an error for invalid contracts. They do not connect to servers or write files. Runtime clients do not load the compiler.
 
 Go hosts link the static C library through `pkg-config: mcptype`:
 
 ```sh
-python3 scripts/package-sdk.py /path/to/sdk aarch64-apple-darwin
+python3 ffi/package-sdk.py /path/to/sdk aarch64-apple-darwin
 export PKG_CONFIG_PATH=/path/to/sdk/lib/pkgconfig
 ```
 
@@ -149,3 +151,25 @@ Optional fields retain presence; nullable and unsupported shapes use
 properties survive round trips. Named definitions are emitted separately.
 Runtime schema validation remains the caller's responsibility. This compiler
 adds no Go transport or Holon-specific runtime.
+
+## Layout
+
+| Path | Contents |
+| --- | --- |
+| `src/` | Compiler. `schema.rs` parses JSON Schema into a language-neutral type tree, `typescript.rs` and `python.rs` render it, `lib.rs` lists the languages, and `bin/mcptype.rs` is the CLI. |
+| `typescript/` | npm runtime client, Node-API compiler binding (`lib.rs`), and tests. |
+| `python/` | Python runtime client, PyO3 compiler binding (`lib.rs`), and tests. |
+| `ffi/` | Static C library for Go and other C hosts. |
+| `tests/` | Compiler contract tests and the MCP fixture server shared by the client tests. |
+| `packaging/` | Linux release builds and the installed-package smoke test. |
+
+`package.json` and `pyproject.toml` stay at the root so both packages ship the root README and LICENSE.
+
+### Adding a language
+
+1. Add a variant to `Language` and `Language::ALL` in `src/lib.rs`. The compiler then flags the two `match` arms that need its output path and emitter.
+2. Add `src/<language>.rs` with a `generate` function that renders `schema::Type` into the complete declarations file.
+3. Add `<language>/` with a runtime client that reads `mcptype.lock.json` and validates calls against the saved schemas, plus tests against `tests/server.mjs`.
+4. Add the language to `CompileRequest` in `typescript/compiler.d.ts` and to CI.
+
+The CLI needs no changes.

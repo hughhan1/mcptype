@@ -108,5 +108,8 @@ pub(crate) fn generate(contracts: &BTreeMap<String, Catalog>) -> String {
             export.push_str("  };\n");
         }
     }
-    exports.map(|export| export + "}\n").join("")
+    format!(
+        "import \"mcptype\";\ndeclare module \"mcptype\" {{\n{}}}\n",
+        exports.map(|export| export + "}\n").join("")
+    )
 }

@@ -5,8 +5,9 @@ edition = "2024"
 
 [lib]
 name = "mcptype"
+path = "lib.rs"
 crate-type = ["staticlib"]
 
 [dependencies]
-mcptype = { path = "../..", default-features = false }
+mcptype = { path = "..", default-features = false }
 serde_json = "1"

@@ -1,6 +1,6 @@
 [workspace]
-members = ["bindings/c", "bindings/node", "bindings/python"]
-default-members = [".", "bindings/c"]
+members = ["ffi", "python", "typescript"]
+default-members = [".", "ffi"]
 resolver = "3"
 
 [package]

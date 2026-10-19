@@ -9,9 +9,11 @@ RUN mkdir /cli && tar -xzf /artifacts/mcptype-linux-${TARGETARCH}.tar.gz -C /cli
     python3 -m venv .venv && \
     arch=$(if [ "$TARGETARCH" = amd64 ]; then echo x86_64; else echo aarch64; fi) && \
     .venv/bin/pip install --only-binary=:all: /artifacts/mcptype-0.0.1-cp311-abi3-linux_${arch}.whl[test]
-COPY tests tests
+COPY tests/server.mjs tests/server.mjs
+COPY typescript/test typescript/test
+COPY python/tests python/tests
 COPY packaging/test-remote.mjs packaging/test-remote.mjs
-ENV MCPTYPE_PACKAGE_TEST=1 MCPTYPE_BINARY=/cli/mcptype
+ENV MCPTYPE_BINARY=/cli/mcptype
 RUN ! command -v cargo && ! command -v rustc && ! command -v mcptype && \
-    node --test tests/*.test.mjs && .venv/bin/python -m pytest -q tests/test_client.py
+    node --test typescript/test/*.test.mjs && .venv/bin/python -m pytest -q python/tests
 CMD ["node", "packaging/test-remote.mjs"]

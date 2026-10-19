@@ -15,7 +15,10 @@
     }
   },
   "files": [
-    "typescript",
+    "typescript/index.mjs",
+    "typescript/index.d.ts",
+    "typescript/compiler.mjs",
+    "typescript/compiler.d.ts",
     "LICENSE",
     "native"
   ],
@@ -23,8 +26,8 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test tests/*.test.mjs",
-    "prepare": "node scripts/build-node.mjs"
+    "test": "node --test typescript/test/*.test.mjs",
+    "prepare": "node typescript/build.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/client": "2.3.1",

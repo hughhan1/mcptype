@@ -8,9 +8,6 @@ function run(command, args) {
   return result.stdout;
 }
 
-for (const executable of ["cargo", "rustc", "mcptype"]) {
-  assert.equal(spawnSync(executable,["--version"]).error?.code,"ENOENT", `${executable} must be absent from PATH`);
-}
 for (const [name, url] of [["deepwiki","https://mcp.deepwiki.com/mcp"],["learn","https://learn.microsoft.com/api/mcp"]]) {
   run(process.env.MCPTYPE_BINARY,["add",name,"http",url]);
 }

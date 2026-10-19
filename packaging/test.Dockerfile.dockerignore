@@ -4,7 +4,12 @@
 !dist/*.whl
 !dist/*.tar.gz
 !tests/
-!tests/*.mjs
-!tests/*.py
+!tests/server.mjs
+!typescript/
+!typescript/test/
+!typescript/test/*.mjs
+!python/
+!python/tests/
+!python/tests/*.py
 !packaging/
 !packaging/test-remote.mjs

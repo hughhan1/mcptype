@@ -4,11 +4,12 @@ version = "0.0.1"
 edition = "2024"
 
 [lib]
+path = "lib.rs"
 crate-type = ["cdylib"]
 test = false
 
 [dependencies]
-mcptype = { path = "../..", default-features = false }
+mcptype = { path = "..", default-features = false }
 napi = { version = "3", default-features = false, features = ["napi8"] }
 napi-derive = "3"
 

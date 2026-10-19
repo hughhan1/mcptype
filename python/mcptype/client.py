@@ -60,6 +60,12 @@ class ToolCallError(RuntimeError):
         super().__init__(f"{app}.{tool}: {self.code}")
 
 
+def _validate(instance: object, schema: dict[str, Any]) -> None:
+    jsonschema.validate(
+        instance, schema, registry=Registry(), format_checker=jsonschema.FormatChecker()
+    )
+
+
 class Connection:
     def __init__(self, name: str, client: Client, contract: dict[str, Any]) -> None:
         self.name = name
@@ -80,12 +86,7 @@ class Connection:
         if name not in self.definitions:
             raise ValueError(f"Unknown tool {self.name}.{name}")
         definition = self.definitions[name]
-        jsonschema.validate(
-            arguments,
-            definition["inputSchema"],
-            registry=Registry(),
-            format_checker=jsonschema.FormatChecker(),
-        )
+        _validate(arguments, definition["inputSchema"])
         result = await self.client.session.send_request(
             CallToolRequest(
                 params=CallToolRequestParams(
@@ -104,12 +105,7 @@ class Connection:
             and not result.is_error
             and "outputSchema" in definition
         ):
-            jsonschema.validate(
-                result.structured_content,
-                definition["outputSchema"],
-                registry=Registry(),
-                format_checker=jsonschema.FormatChecker(),
-            )
+            _validate(result.structured_content, definition["outputSchema"])
         return result
 
 

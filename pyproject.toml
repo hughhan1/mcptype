@@ -13,12 +13,12 @@ dependencies = ["mcp>=2.3,<3", "jsonschema>=4,<5"]
 test = ["pytest>=9,<10", "mypy==2.4.0", "pyright==1.1.414", "types-jsonschema"]
 
 [tool.maturin]
-manifest-path = "bindings/python/Cargo.toml"
+manifest-path = "python/Cargo.toml"
 python-source = "python"
 module-name = "mcptype._native"
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
+testpaths = ["python/tests"]
 
 [tool.mypy]
 strict = true

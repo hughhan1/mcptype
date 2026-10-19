@@ -32,6 +32,33 @@ pub enum Language {
     Go,
 }
 
+impl Language {
+    pub const ALL: [Self; 3] = [Self::TypeScript, Self::Python, Self::Go];
+
+    /// Where the CLI writes this language's declarations, relative to `mcptype.lock.json`.
+    pub fn path(self) -> &'static str {
+        match self {
+            Self::TypeScript => "mcptype-env.d.ts",
+            Self::Python => "typings/mcptype/__init__.pyi",
+            Self::Go => "mcptype-env.go",
+        }
+    }
+
+    fn generate(
+        self,
+        contracts: &BTreeMap<String, Catalog>,
+    ) -> (String, Option<BTreeMap<String, GoBinding>>) {
+        match self {
+            Self::TypeScript => (typescript::generate(contracts), None),
+            Self::Python => (python::generate(contracts), None),
+            Self::Go => {
+                let (declarations, bindings) = go::generate(contracts);
+                (declarations, Some(bindings))
+            }
+        }
+    }
+}
+
 #[derive(Debug, Deserialize)]
 pub struct Request {
     pub language: Language,
@@ -45,21 +72,13 @@ pub struct Generated {
     pub bindings: Option<BTreeMap<String, GoBinding>>,
 }
 
-pub struct Catalog {
+struct Catalog {
     tools: BTreeMap<String, Tool>,
 }
 
 struct Tool {
     input: schema::Shape,
     output: schema::Shape,
-}
-
-impl TryFrom<Value> for Catalog {
-    type Error = Error;
-
-    fn try_from(value: Value) -> Result<Self, Error> {
-        Self::parse(value, &AtomicBool::new(false))
-    }
 }
 
 impl Catalog {
@@ -84,7 +103,6 @@ impl Catalog {
         let raw: RawCatalog = serde_json::from_value(value)?;
         let mut tools = BTreeMap::new();
         for tool in raw.tools {
-            check_cancelled(cancelled)?;
             if tool.name.is_empty() || tools.contains_key(&tool.name) {
                 return Err(Error::Contract(
                     "tool names must be nonempty and unique".into(),
@@ -113,21 +131,6 @@ impl Catalog {
     }
 }
 
-pub fn generate(language: Language, contracts: &BTreeMap<String, Catalog>) -> Generated {
-    let (declarations, bindings) = match language {
-        Language::TypeScript => (typescript::generate(contracts), None),
-        Language::Python => (python::generate(contracts), None),
-        Language::Go => {
-            let (declarations, bindings) = go::generate(contracts);
-            (declarations, Some(bindings))
-        }
-    };
-    Generated {
-        declarations,
-        bindings,
-    }
-}
-
 pub fn compile(request: Request) -> Result<Generated, Error> {
     compile_cancellable(request, &AtomicBool::new(false))
 }
@@ -144,10 +147,11 @@ pub fn compile_cancellable(request: Request, cancelled: &AtomicBool) -> Result<G
             Ok((name, Catalog::parse(raw, cancelled)?))
         })
         .collect::<Result<_, Error>>()?;
-    check_cancelled(cancelled)?;
-    let result = generate(request.language, &contracts);
-    check_cancelled(cancelled)?;
-    Ok(result)
+    let (declarations, bindings) = request.language.generate(&contracts);
+    Ok(Generated {
+        declarations,
+        bindings,
+    })
 }
 
 pub fn compile_json(input: &str) -> Result<String, Error> {
