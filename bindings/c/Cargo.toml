@@ -1,0 +1,12 @@
+[package]
+name = "mcptype-ffi"
+version = "0.0.1"
+edition = "2024"
+
+[lib]
+name = "mcptype"
+crate-type = ["staticlib"]
+
+[dependencies]
+mcptype = { path = "../..", default-features = false }
+serde_json = "1"

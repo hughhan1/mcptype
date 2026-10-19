@@ -1,0 +1,11 @@
+/target
+/node_modules
+/.venv
+/dist
+__pycache__/
+*.egg-info/
+.mypy_cache/
+.pytest_cache/
+/native
+*.so
+*.dylib

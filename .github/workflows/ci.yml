@@ -1,0 +1,32 @@
+name: CI
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  contracts:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm, macos-15, macos-15-intel]
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - uses: astral-sh/setup-uv@v7
+        with:
+          python-version: '3.12'
+      - run: cargo fmt --all --check
+      - run: cargo clippy --locked --workspace --all-targets -- -D warnings
+      - run: cargo test --locked
+      - run: cargo build --locked --release --bin mcptype
+      - run: npm ci
+      - run: npm test
+      - run: mkdir -p dist && npm pack --ignore-scripts --pack-destination dist
+      - run: uv build --wheel --out-dir dist
+      - run: uv venv
+      - run: for wheel in dist/*.whl; do uv pip install "${wheel}[test]"; done
+      - run: uv run --no-project pytest
+      - run: uv run --no-project mypy --strict python/mcptype

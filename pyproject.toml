@@ -1,0 +1,24 @@
+[build-system]
+requires = ["maturin>=1.9,<2"]
+build-backend = "maturin"
+
+[project]
+name = "mcptype"
+version = "0.0.1"
+description = "MCP contracts and typed clients"
+requires-python = ">=3.11"
+dependencies = ["mcp>=2.3,<3", "jsonschema>=4,<5"]
+
+[project.optional-dependencies]
+test = ["pytest>=9,<10", "mypy==2.4.0", "pyright==1.1.414", "types-jsonschema"]
+
+[tool.maturin]
+manifest-path = "bindings/python/Cargo.toml"
+python-source = "python"
+module-name = "mcptype._native"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[tool.mypy]
+strict = true

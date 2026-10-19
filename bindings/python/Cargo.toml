@@ -1,0 +1,13 @@
+[package]
+name = "mcptype-python"
+version = "0.0.1"
+edition = "2024"
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+test = false
+
+[dependencies]
+mcptype = { path = "../..", default-features = false }
+pyo3 = { version = "0.29", features = ["extension-module", "abi3-py311"] }

@@ -1,0 +1,37 @@
+[workspace]
+members = ["bindings/c", "bindings/node", "bindings/python"]
+default-members = [".", "bindings/c"]
+resolver = "3"
+
+[package]
+name = "mcptype"
+version = "0.0.1"
+edition = "2024"
+license = "MIT"
+description = "MCP contracts for TypeScript and Python"
+repository = "https://github.com/hughhan1/mcptype"
+
+[lib]
+name = "mcptype"
+
+[[bin]]
+name = "mcptype"
+path = "src/bin/mcptype.rs"
+required-features = ["cli"]
+
+[features]
+default = ["cli"]
+cli = ["dep:clap", "dep:rmcp", "dep:tokio"]
+
+[dependencies]
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+thiserror = "2"
+clap = { version = "4", features = ["derive"], optional = true }
+rmcp = { version = "3.5.1", default-features = false, features = ["client", "reqwest", "transport-child-process", "transport-streamable-http-client-reqwest"], optional = true }
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "process", "time"], optional = true }
+
+[profile.release]
+opt-level = "s"
+lto = true
+strip = true

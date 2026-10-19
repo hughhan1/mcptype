@@ -1,0 +1,9 @@
+.git
+.venv
+node_modules
+target
+dist
+native
+**/__pycache__
+.mypy_cache
+.pytest_cache
