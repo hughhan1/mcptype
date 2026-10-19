@@ -11,8 +11,6 @@ subprocess.run(["cargo", "build", "--locked", "--release", "-p", "mcptype-ffi", 
 shutil.copyfile("bindings/c/mcptype.h", output / "include/mcptype.h")
 shutil.copyfile(f"target/{target}/release/libmcptype.a", output / "lib/libmcptype.a")
 libs = "-lSystem -lc -lm" if "apple" in target else "-ldl -lpthread -lm"
-if "musl" in target:
-    libs += " -lunwind -lc"
 (output / "lib/pkgconfig/mcptype.pc").write_text(f"""prefix=${{pcfiledir}}/../..
 Name: mcptype
 Description: MCP contract compiler
