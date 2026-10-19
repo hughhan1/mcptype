@@ -2,9 +2,15 @@ use mcptype::{Language, Request, compile};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 
-fn compile_contracts(language: Language, contracts: Value) -> Result<mcptype::Generated, mcptype::Error> {
+fn compile_contracts(
+    language: Language,
+    contracts: Value,
+) -> Result<mcptype::Generated, mcptype::Error> {
     let contracts: BTreeMap<String, Value> = serde_json::from_value(contracts).unwrap();
-    compile(Request { language, contracts })
+    compile(Request {
+        language,
+        contracts,
+    })
 }
 
 #[test]
@@ -52,8 +58,12 @@ fn tool_order_does_not_change_declarations() {
     reversed["files"]["tools"].as_array_mut().unwrap().reverse();
     for language in Language::ALL {
         assert_eq!(
-            compile_contracts(language, contracts.clone()).unwrap().declarations,
-            compile_contracts(language, reversed.clone()).unwrap().declarations
+            compile_contracts(language, contracts.clone())
+                .unwrap()
+                .declarations,
+            compile_contracts(language, reversed.clone())
+                .unwrap()
+                .declarations
         );
     }
 }

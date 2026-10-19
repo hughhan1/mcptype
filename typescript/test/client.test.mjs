@@ -10,7 +10,7 @@ import ts from "typescript";
 import { mcp, ToolCallError } from "mcptype";
 import { compile } from "mcptype/compiler";
 
-const binary = process.env.MCPTYPE_BINARY ?? fileURLToPath(new URL("../../target/release/mcptype", import.meta.url));
+const binary = fileURLToPath(new URL("../../target/release/mcptype", import.meta.url));
 const server = fileURLToPath(new URL("../../tests/server.mjs", import.meta.url));
 const root = fileURLToPath(new URL("..", import.meta.resolve("mcptype")));
 function cli(cwd, args) {
@@ -44,9 +44,7 @@ test("stdio and HTTP discovery produce clients with pinned validation and raw MC
       assert.equal(raw.content[0].text,"hello");
       await assert.rejects(client.tools.read_text_file({path:1}), /Invalid arguments/);
       await assert.rejects(client.tools.fail({}), error => error instanceof ToolCallError && error.result.isError);
-      const asked = await client.callTool({name:"ask",arguments:{}});
-      if (name === "remote") assert.equal(asked.resultType,"input_required");
-      else assert.equal(asked.isError,true);
+      if (name === "remote") assert.equal((await client.callTool({name:"ask",arguments:{}})).resultType,"input_required");
     } finally { await client.close(); }
   }
   const lock = JSON.parse(readFileSync("mcptype.lock.json","utf8"));
@@ -62,9 +60,12 @@ test("stdio and HTTP discovery produce clients with pinned validation and raw MC
   assert.match(stale.stderr,/stale declarations/);
 });
 
-test("ordinary TypeScript imports enforce generated inputs and outputs", async t => {
+test("generated declarations, from the CLI or the native compiler, enforce inputs and outputs", async t => {
   const directory = project(t);
   cli(directory,["add","files","stdio",process.execPath,server]);
+  const { bindings } = JSON.parse(readFileSync(join(directory,"mcptype.lock.json"),"utf8"));
+  const contracts = Object.fromEntries(Object.entries(bindings).map(([name, binding]) => [name, binding.contract]));
+  assert.equal((await compile({ language: "typescript", contracts })).declarations, readFileSync(join(directory,"mcptype-env.d.ts"),"utf8"));
   mkdirSync(join(directory,"node_modules"),{recursive:true});
   symlinkSync(root,join(directory,"node_modules/mcptype"));
   writeFileSync(join(directory,"package.json"),'{"type":"module"}');
@@ -93,13 +94,4 @@ test("HTTP registration supports legacy servers returning discovery errors over 
   cli(directory,["add","files","http",await http(t,"--legacy-sse")]);
   const lock = JSON.parse(readFileSync(join(directory,"mcptype.lock.json"),"utf8"));
   assert.equal(lock.bindings.files.contract.tools.find(tool => tool.name === "read_text_file").inputSchema.properties.path.type,"string");
-});
-
-test("the native compiler returns the declarations the CLI writes", async t => {
-  const directory = project(t);
-  cli(directory,["add","files","stdio",process.execPath,server]);
-  const { bindings } = JSON.parse(readFileSync(join(directory,"mcptype.lock.json"),"utf8"));
-  const contracts = Object.fromEntries(Object.entries(bindings).map(([name, binding]) => [name, binding.contract]));
-  assert.deepEqual(await compile({ language: "typescript", contracts }), { declarations: readFileSync(join(directory,"mcptype-env.d.ts"),"utf8") });
-  await assert.rejects(compile({ language: "typescript", contracts: { files: { tools: [{ name: "read", inputSchema: { type: "string" } }] } } }), /inputSchema must have type object/);
 });

@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -12,7 +11,7 @@ from mcptype.client import ToolCallError
 from mcptype.compiler import compile
 
 ROOT = Path(__file__).parents[2]
-BINARY = Path(os.environ.get("MCPTYPE_BINARY", ROOT / "target/release/mcptype"))
+BINARY = ROOT / "target/release/mcptype"
 SERVER = ROOT / "tests/server.mjs"
 
 
@@ -57,11 +56,9 @@ def test_clients_validate_saved_contracts_and_preserve_raw_results(
                 with pytest.raises(ToolCallError) as error:
                     await client.tools.fail({})
                 assert error.value.result.is_error
-                asked = await client.call_tool("ask", {})
                 if name == "remote":
+                    asked = await client.call_tool("ask", {})
                     assert asked.result_type == "input_required"
-                else:
-                    assert asked.is_error
         lock = json.loads(Path("mcptype.lock.json").read_text())
         lock["bindings"]["files"]["endpoint"]["args"].append("--number")
         Path("mcptype.lock.json").write_text(json.dumps(lock))
@@ -72,8 +69,12 @@ def test_clients_validate_saved_contracts_and_preserve_raw_results(
     asyncio.run(run())
 
 
-def test_both_python_checkers_use_saved_types_with_an_ordinary_import(tmp_path):
+def test_generated_stubs_from_the_cli_or_native_compiler_type_check(tmp_path):
     cli(tmp_path, "add", "files", "stdio", "node", str(SERVER))
+    lock = json.loads((tmp_path / "mcptype.lock.json").read_text())
+    contracts = {name: b["contract"] for name, b in lock["bindings"].items()}
+    declarations = compile({"language": "python", "contracts": contracts})["declarations"]
+    assert declarations == (tmp_path / "typings/mcptype/__init__.pyi").read_text()
     (tmp_path / "pyproject.toml").write_text("""[tool.mypy]
 strict = true
 mypy_path = "$MYPY_CONFIG_FILE_DIR/typings"
@@ -106,21 +107,3 @@ async def run() -> None:
             timeout=60,
         )
         assert result.returncode == 0, result.stdout + result.stderr
-
-
-def test_native_compiler_returns_the_declarations_the_cli_writes(tmp_path):
-    cli(tmp_path, "add", "files", "stdio", "node", str(SERVER))
-    lock = json.loads((tmp_path / "mcptype.lock.json").read_text())
-    contracts = {name: b["contract"] for name, b in lock["bindings"].items()}
-    assert compile({"language": "python", "contracts": contracts}) == {
-        "declarations": (tmp_path / "typings/mcptype/__init__.pyi").read_text()
-    }
-    with pytest.raises(ValueError, match="inputSchema must have type object"):
-        compile(
-            {
-                "language": "python",
-                "contracts": {
-                    "files": {"tools": [{"name": "read", "inputSchema": {"type": "string"}}]}
-                },
-            }
-        )

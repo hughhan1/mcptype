@@ -161,7 +161,7 @@ adds no Go transport or Holon-specific runtime.
 | `python/` | Python runtime client, PyO3 compiler binding (`lib.rs`), and tests. |
 | `ffi/` | Static C library for Go and other C hosts. |
 | `tests/` | Compiler contract tests and the MCP fixture server shared by the client tests. |
-| `packaging/` | Linux release builds and the installed-package smoke test. |
+| `packaging/` | Linux release builds. |
 
 `package.json` and `pyproject.toml` stay at the root so both packages ship the root README and LICENSE.
 
