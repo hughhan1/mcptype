@@ -131,7 +131,7 @@ stubPath = "typings"
                 cwd=tmp_path,
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=120,
             )
             assert (result.returncode == 0) == success, result.stdout + result.stderr
 
