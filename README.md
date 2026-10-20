@@ -133,3 +133,19 @@ The C ABI uses an owned request: `mcptype_request_create` copies input JSON; `mc
 - `.tools` returns structured output and throws `ToolCallError` for tool errors or input-required results. `callTool` / `call_tool` returns the full MCP result, including text, media, errors, and input requests supported by the negotiated protocol. Unusual or reserved tool names remain accessible through this raw method.
 - Missing output schemas produce TypeScript `unknown` or Python `object`. Objects, arrays, scalar literals, unions, local references, and named definitions are supported. Recursive references and unsupported shapes lose static detail; runtime schema validation remains authoritative. Python represents JSON arrays as lists, including tuple schemas.
 - Registration is explicit. Imports do not contact servers, execute local commands, refresh contracts, or modify files. No hosting service or package registry is required after installation.
+
+## Go declarations
+
+Compile with `language: "go"` through the existing compiler API. The result has
+Go declarations (without a package clause) and a `bindings` map containing each
+binding's client name and each tool's generated method, input, and output names.
+Hosts can use these symbols to generate transport-specific clients without
+reimplementing name allocation. Names are deterministic and collision-safe.
+
+Closed objects produce structs, arrays produce slices, and homogeneous maps
+retain their value type. JSON numbers use `json.Number` to preserve precision.
+Optional fields retain presence; nullable and unsupported shapes use
+`json.RawMessage`. Open objects with named fields use raw-message maps so unknown
+properties survive round trips. Named definitions are emitted separately.
+Runtime schema validation remains the caller's responsibility. This compiler
+adds no Go transport or Holon-specific runtime.

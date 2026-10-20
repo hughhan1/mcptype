@@ -1,6 +1,9 @@
+mod go;
 mod python;
 mod schema;
 mod typescript;
+
+pub use go::{Binding as GoBinding, Tool as GoTool};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -26,6 +29,7 @@ pub enum Error {
 pub enum Language {
     TypeScript,
     Python,
+    Go,
 }
 
 #[derive(Debug, Deserialize)]
@@ -37,6 +41,8 @@ pub struct Request {
 #[derive(Debug, Serialize)]
 pub struct Generated {
     pub declarations: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub bindings: Option<BTreeMap<String, GoBinding>>,
 }
 
 pub struct Catalog {
@@ -108,11 +114,17 @@ impl Catalog {
 }
 
 pub fn generate(language: Language, contracts: &BTreeMap<String, Catalog>) -> Generated {
+    let (declarations, bindings) = match language {
+        Language::TypeScript => (typescript::generate(contracts), None),
+        Language::Python => (python::generate(contracts), None),
+        Language::Go => {
+            let (declarations, bindings) = go::generate(contracts);
+            (declarations, Some(bindings))
+        }
+    };
     Generated {
-        declarations: match language {
-            Language::TypeScript => typescript::generate(contracts),
-            Language::Python => python::generate(contracts),
-        },
+        declarations,
+        bindings,
     }
 }
 
