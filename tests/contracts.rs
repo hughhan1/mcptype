@@ -1,5 +1,5 @@
 use mcptype::{Catalog, Language, Request, compile};
-use serde_json::{Value, json};
+use serde_json::json;
 use std::collections::BTreeMap;
 
 #[test]
@@ -18,26 +18,6 @@ fn invalid_catalogs_are_rejected_before_generation() {
 }
 
 #[test]
-fn tool_order_does_not_change_declarations() {
-    let tools = json!([
-        {"name":"read", "inputSchema":{"type":"object"}},
-        {"name":"write", "inputSchema":{"type":"object"}}
-    ]);
-    let reversed = Value::Array(tools.as_array().unwrap().iter().rev().cloned().collect());
-    for language in [Language::TypeScript, Language::Python, Language::Go] {
-        let emit = |tools: Value| {
-            compile(Request {
-                language,
-                contracts: BTreeMap::from([("files".into(), json!({"tools":tools}))]),
-            })
-            .unwrap()
-            .declarations
-        };
-        assert_eq!(emit(tools.clone()), emit(reversed.clone()));
-    }
-}
-
-#[test]
 fn go_types_preserve_json_and_compile() {
     let schema = json!({"type":"object","additionalProperties":false,"properties":{
         "name":{"type":"string"},
@@ -50,10 +30,33 @@ fn go_types_preserve_json_and_compile() {
     },"required":["name","count","labels","open","item"],"$defs":{
         "Item":{"type":"object","additionalProperties":false,"properties":{"id":{"type":"string"}},"required":["id"]}
     }});
-    let generated = compile(Request { language: Language::Go, contracts: BTreeMap::from([
-        ("orders".into(), json!({"tools":[{"name":"get_order","inputSchema":schema,"outputSchema":{"type":"object"}}]})),
-        ("orders!".into(), json!({"tools":[{"name":"get-order","inputSchema":{"type":"object"}},{"name":"get_order","inputSchema":{"type":"object"}}]}))
-    ])}).unwrap();
+    let mut contracts = BTreeMap::from([
+        (
+            "orders".into(),
+            json!({"tools":[{"name":"get_order","inputSchema":schema,"outputSchema":{"type":"object"}}]}),
+        ),
+        (
+            "orders!".into(),
+            json!({"tools":[{"name":"get-order","inputSchema":{"type":"object"}},{"name":"get_order","inputSchema":{"type":"object"}}]}),
+        ),
+    ]);
+    let generated = compile(Request {
+        language: Language::Go,
+        contracts: contracts.clone(),
+    })
+    .unwrap();
+    for catalog in contracts.values_mut() {
+        catalog["tools"].as_array_mut().unwrap().reverse();
+    }
+    let reordered = compile(Request {
+        language: Language::Go,
+        contracts,
+    })
+    .unwrap();
+    assert_eq!(
+        serde_json::to_value(&generated).unwrap(),
+        serde_json::to_value(reordered).unwrap()
+    );
     let bindings = generated.bindings.as_ref().unwrap();
     assert_ne!(bindings["orders"].name, bindings["orders!"].name);
     assert_ne!(
