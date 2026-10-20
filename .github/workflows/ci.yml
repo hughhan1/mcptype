@@ -28,11 +28,15 @@ jobs:
           filters: |
             native:
               - '.github/**'
+              - '.cargo/**'
+              - '.dockerignore'
               - 'packaging/**'
               - 'bindings/**'
               - 'scripts/**'
               - 'Cargo*'
               - 'rust-toolchain*'
+              - 'package*.json'
+              - 'pyproject.toml'
               - 'build.rs'
       - uses: Swatinem/rust-cache@v2
         with:
