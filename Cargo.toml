@@ -8,7 +8,7 @@ name = "mcptype"
 version = "0.0.1"
 edition = "2024"
 license = "MIT"
-description = "MCP contracts for TypeScript and Python"
+description = "MCP contracts for TypeScript, Python, and Go"
 repository = "https://github.com/hughhan1/mcptype"
 
 [lib]
