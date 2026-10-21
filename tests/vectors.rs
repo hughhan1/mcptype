@@ -5,20 +5,12 @@ use serde_json::Value;
 fn shared_canonical_and_change_vectors_match() {
     let vectors: Value = serde_json::from_str(include_str!("vectors/contract-core.json")).unwrap();
     for vector in vectors["canonical"].as_array().unwrap() {
-        let actual: Value =
-            serde_json::from_str(&canonical_json(&vector["input"].to_string()).unwrap()).unwrap();
-        assert_eq!(
-            serde_json::to_string(&actual).unwrap(),
-            serde_json::to_string(&vector["output"]).unwrap()
-        );
+        let actual = canonical_json(&vector["input"].to_string()).unwrap();
+        assert_eq!(actual, vector["output"].to_string());
     }
     for vector in vectors["changes"].as_array().unwrap() {
-        let actual: Value =
-            serde_json::from_str(&changes_json(&vector["input"].to_string()).unwrap()).unwrap();
-        assert_eq!(
-            serde_json::to_string(&actual).unwrap(),
-            serde_json::to_string(&vector["output"]).unwrap()
-        );
+        let actual = changes_json(&vector["input"].to_string()).unwrap();
+        assert_eq!(actual, vector["output"].to_string());
     }
 }
 

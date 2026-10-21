@@ -6,7 +6,7 @@ mod python;
 mod schema;
 mod typescript;
 
-pub use canonical::{canonical, canonical_contract, canonical_json, digest};
+pub use canonical::{canonical, canonical_json, digest};
 pub use changes::{Change, changes, changes_json};
 pub use contract::{Contract, Expectation, Identity, Metadata, Resource, Schema, Tool};
 pub use go::{Binding as GoBinding, Tool as GoTool};

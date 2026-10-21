@@ -10,13 +10,9 @@ VECTORS = json.loads((ROOT / "tests/vectors/contract-core.json").read_text())
 
 def test_canonical_outputs_match_shared_vectors() -> None:
     for vector in VECTORS["canonical"]:
-        assert json.dumps(canonical(vector["input"]), sort_keys=True, separators=(",", ":")) == json.dumps(
-            vector["output"], sort_keys=True, separators=(",", ":")
-        )
+        assert canonical(vector["input"]) == vector["output"]
 
 
 def test_change_outputs_match_shared_vectors() -> None:
     for vector in VECTORS["changes"]:
-        assert json.dumps(changes(vector["input"]), sort_keys=True, separators=(",", ":")) == json.dumps(
-            vector["output"], sort_keys=True, separators=(",", ":")
-        )
+        assert changes(vector["input"]) == vector["output"]

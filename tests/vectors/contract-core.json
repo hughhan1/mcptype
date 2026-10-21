@@ -355,6 +355,32 @@
                     "id"
                   ]
                 }
+              },
+              {
+                "name": "gone",
+                "inputSchema": {
+                  "type": "object"
+                }
+              },
+              {
+                "name": "out_added",
+                "inputSchema": {
+                  "type": "object"
+                }
+              },
+              {
+                "name": "out_changed",
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "string"
+                    }
+                  }
+                }
               }
             ],
             "resources": [
@@ -367,6 +393,12 @@
                       "type": "number"
                     }
                   }
+                }
+              },
+              {
+                "uri": "orders://gone",
+                "outputSchema": {
+                  "type": "object"
                 }
               }
             ]
@@ -392,6 +424,29 @@
                   "required": [
                     "id"
                   ]
+                }
+              },
+              {
+                "name": "out_added",
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object"
+                }
+              },
+              {
+                "name": "out_changed",
+                "inputSchema": {
+                  "type": "object"
+                },
+                "outputSchema": {
+                  "type": "object",
+                  "properties": {
+                    "value": {
+                      "type": "number"
+                    }
+                  }
                 }
               }
             ],
@@ -424,6 +479,26 @@
             "kind": "tool_input_changed",
             "name": "get",
             "text": "tool get input changed"
+          },
+          {
+            "kind": "tool_removed",
+            "name": "gone",
+            "text": "tool gone removed"
+          },
+          {
+            "kind": "tool_output_changed",
+            "name": "out_added",
+            "text": "tool out_added output changed"
+          },
+          {
+            "kind": "tool_output_changed",
+            "name": "out_changed",
+            "text": "tool out_changed output changed"
+          },
+          {
+            "kind": "resource_removed",
+            "uri": "orders://gone",
+            "text": "resource orders://gone removed"
           },
           {
             "kind": "resource_output_changed",

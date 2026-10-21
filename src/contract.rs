@@ -62,13 +62,13 @@ impl<'de> Deserialize<'de> for Contract {
         let wire = WireContract::deserialize(deserializer)?;
         let mut tools = BTreeMap::new();
         for item in wire.tools {
-            if tools.insert(item.name.clone(), item.tool).is_some() {
+            if tools.insert(item.name, item.tool).is_some() {
                 return Err(D::Error::custom("duplicate tool name"));
             }
         }
         let mut resources = BTreeMap::new();
         for item in wire.resources {
-            if resources.insert(item.uri.clone(), item.resource).is_some() {
+            if resources.insert(item.uri, item.resource).is_some() {
                 return Err(D::Error::custom("duplicate resource URI"));
             }
         }

@@ -4,7 +4,7 @@ use crate::{
 };
 use ring::digest::{SHA256, digest as sha256};
 use serde::Deserialize;
-use serde_json::{Map, Value, json};
+use serde_json::{Value, json};
 
 const ANNOTATIONS: &[&str] = &["description", "title", "$comment", "examples"];
 const UNORDERED: &[&str] = &["required", "enum", "type", "allOf", "anyOf", "oneOf"];
@@ -42,10 +42,6 @@ pub fn digest(contract: &Contract) -> String {
     digest_value(&contract_value(contract))
 }
 
-pub fn canonical_contract(contract: &Contract) -> Value {
-    contract_value(contract)
-}
-
 pub fn canonical_json(input: &str) -> Result<String, Error> {
     #[derive(Deserialize)]
     struct Request {
@@ -81,30 +77,18 @@ pub fn canonical_json(input: &str) -> Result<String, Error> {
 }
 
 fn contract_value(contract: &Contract) -> Value {
-    let tools = contract
-        .tools
-        .iter()
-        .map(|(name, tool)| {
-            let mut fields = Map::new();
-            fields.insert("name".into(), Value::String(name.clone()));
-            fields.insert("inputSchema".into(), canonical(&tool.input));
-            if let Some(output) = &tool.output {
-                fields.insert("outputSchema".into(), canonical(output));
-            }
-            Value::Object(fields)
-        })
-        .collect::<Vec<_>>();
-    let resources = contract
-        .resources
-        .iter()
-        .map(|(uri, resource)| json!({"uri": uri, "outputSchema": canonical(&resource.output)}))
-        .collect::<Vec<_>>();
-    let mut fields = Map::new();
-    fields.insert("tools".into(), Value::Array(tools));
-    if !resources.is_empty() {
-        fields.insert("resources".into(), Value::Array(resources));
+    let mut contract = contract.clone();
+    for tool in contract.tools.values_mut() {
+        normalize(&mut tool.input.0);
+        tool.output = tool.output.take().map(|mut schema| {
+            normalize(&mut schema.0);
+            schema
+        });
     }
-    Value::Object(fields)
+    for resource in contract.resources.values_mut() {
+        normalize(&mut resource.output.0);
+    }
+    serde_json::to_value(contract).expect("contracts are serializable")
 }
 
 fn digest_value(value: &Value) -> String {
@@ -158,7 +142,6 @@ fn normalize(value: &mut Value) {
 mod tests {
     use super::*;
     use serde_json::json;
-    use std::collections::BTreeMap;
 
     #[test]
     fn canonical_schema_drops_annotations_sorts_unordered_keywords_and_recurses() {
@@ -209,21 +192,5 @@ mod tests {
         let right =
             Schema(json!({"type":"object","dependentSchemas":{"description":{"required":["b"]}}}));
         assert_ne!(canonical(&left), canonical(&right));
-    }
-
-    #[test]
-    fn contract_digest_handles_resources() {
-        let contract = Contract {
-            tools: BTreeMap::new(),
-            resources: BTreeMap::from([(
-                "orders://summary".into(),
-                crate::contract::Resource {
-                    output: Schema(
-                        json!({"type":"object","properties":{"total":{"type":"number","description":"total"}}}),
-                    ),
-                },
-            )]),
-        };
-        assert!(digest(&contract).starts_with("sha256:"));
     }
 }
