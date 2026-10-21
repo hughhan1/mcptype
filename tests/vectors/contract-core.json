@@ -181,6 +181,60 @@
         },
         "digest": "sha256:a679b54edb6b49a0212556d4fd27af486ed1af5224ed25b2d30e5ba2fa727a3c"
       }
+    },
+    {
+      "input": {
+        "schema": {
+          "type": "object",
+          "dependentSchemas": {
+            "description": {
+              "required": [
+                "b",
+                "a"
+              ]
+            }
+          },
+          "anyOf": [
+            {
+              "type": "string",
+              "title": "x"
+            },
+            {
+              "properties": {
+                "z": {},
+                "a": {}
+              },
+              "type": "object"
+            }
+          ]
+        }
+      },
+      "output": {
+        "canonical": {
+          "anyOf": [
+            {
+              "properties": {
+                "a": {},
+                "z": {}
+              },
+              "type": "object"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "dependentSchemas": {
+            "description": {
+              "required": [
+                "a",
+                "b"
+              ]
+            }
+          },
+          "type": "object"
+        },
+        "digest": "sha256:ce5b4f183ca78963b0c0d8f4a99930827275540f2e1e68068a3931c525897c13"
+      }
     }
   ],
   "changes": [
@@ -508,5 +562,16 @@
         ]
       }
     }
+  ],
+  "invalid": [
+    {"expected":{"identity":{"name":"a","version":"1"},"contract":{"tools":[{"name":"read","inputSchema":{"type":"object"}},{"name":"read","inputSchema":{"type":"object"}}]}},"published":null},
+    {"expected":{"identity":{"name":"a","version":"1"},"contract":{"tools":[{"name":"","inputSchema":{"type":"object"}}]}},"published":null},
+    {"expected":{"identity":{"name":"a","version":"1"},"contract":{"tools":[{"name":"read","inputSchema":{"type":"string"}}]}},"published":null},
+    {"expected":{"identity":{"name":"a","version":"1"},"contract":{"tools":[{"name":"read","inputSchema":{"type":"object"},"outputSchema":null}]}},"published":null},
+    {"expected":{"identity":{"name":"a","version":"1"},"contract":{"tools":[],"resources":[{"uri":"r://a","outputSchema":{}},{"uri":"r://a","outputSchema":{}}]}},"published":null},
+    {"expected":{"identity":{"name":"a","version":"1"},"contract":{"tools":[],"resources":[{"uri":"r://a","outputSchema":[]}]}},"published":null},
+    {"expected":{"identity":{"name":"","version":"1"},"contract":{"tools":[]}},"published":null},
+    {"expected":{"identity":{"name":"a","version":"1"},"contract":{"tools":[]}},"published":{"version":2,"identity":{"name":"a","version":"1"}}},
+    {"expected":{"identity":{"name":"a","version":"1"},"contract":{"tools":[]}},"published":{"version":1,"identity":{"name":"a","version":"1"},"requires":{"":{"identity":{"name":"a","version":"1"},"contract":{"tools":[]}}}}}
   ]
 }

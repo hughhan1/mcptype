@@ -1,116 +1,36 @@
-use serde::{Deserialize, Serialize, de::Error as DeError, ser::SerializeStruct};
-use serde_json::Value;
+//! The v1 contract document. Deserializing a value validates it; there is no separate `validate` step.
+use serde::{Deserialize, Deserializer, Serialize, de::Error as _};
+use serde_json::{Map, Value};
 use std::collections::BTreeMap;
 
-pub const CONTRACT_SCHEMA: &str = include_str!("../schema/contract.schema.json");
+/// A JSON Schema. Only JSON objects deserialize.
+pub type Schema = Map<String, Value>;
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct Identity {
+    #[serde(deserialize_with = "non_empty")]
     pub name: String,
+    #[serde(deserialize_with = "non_empty")]
     pub version: String,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-pub struct Schema(pub Value);
-
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Tool {
-    #[serde(rename = "inputSchema")]
     pub input: Schema,
-    #[serde(rename = "outputSchema", skip_serializing_if = "Option::is_none")]
     pub output: Option<Schema>,
 }
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Resource {
-    #[serde(rename = "outputSchema")]
     pub output: Schema,
 }
 
-#[derive(Clone, Debug, PartialEq)]
+/// Tools keyed by name and resources keyed by URI. The wire format is v1's arrays, written in key order.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+#[serde(try_from = "Wire", into = "Wire")]
 pub struct Contract {
     pub tools: BTreeMap<String, Tool>,
     pub resources: BTreeMap<String, Resource>,
-}
-
-#[derive(Deserialize)]
-struct WireTool {
-    name: String,
-    #[serde(flatten)]
-    tool: Tool,
-}
-
-#[derive(Deserialize)]
-struct WireResource {
-    uri: String,
-    #[serde(flatten)]
-    resource: Resource,
-}
-
-#[derive(Deserialize)]
-struct WireContract {
-    tools: Vec<WireTool>,
-    #[serde(default)]
-    resources: Vec<WireResource>,
-}
-
-impl<'de> Deserialize<'de> for Contract {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        let wire = WireContract::deserialize(deserializer)?;
-        let mut tools = BTreeMap::new();
-        for item in wire.tools {
-            if tools.insert(item.name, item.tool).is_some() {
-                return Err(D::Error::custom("duplicate tool name"));
-            }
-        }
-        let mut resources = BTreeMap::new();
-        for item in wire.resources {
-            if resources.insert(item.uri, item.resource).is_some() {
-                return Err(D::Error::custom("duplicate resource URI"));
-            }
-        }
-        Ok(Self { tools, resources })
-    }
-}
-
-impl Serialize for Contract {
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: serde::Serializer,
-    {
-        #[derive(Serialize)]
-        struct ToolRef<'a> {
-            name: &'a str,
-            #[serde(flatten)]
-            tool: &'a Tool,
-        }
-        #[derive(Serialize)]
-        struct ResourceRef<'a> {
-            uri: &'a str,
-            #[serde(flatten)]
-            resource: &'a Resource,
-        }
-
-        let tools = self
-            .tools
-            .iter()
-            .map(|(name, tool)| ToolRef { name, tool })
-            .collect::<Vec<_>>();
-        let resources = self
-            .resources
-            .iter()
-            .map(|(uri, resource)| ResourceRef { uri, resource })
-            .collect::<Vec<_>>();
-        let mut state = serializer.serialize_struct("Contract", 2)?;
-        state.serialize_field("tools", &tools)?;
-        if !resources.is_empty() {
-            state.serialize_field("resources", &resources)?;
-        }
-        state.end()
-    }
 }
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
@@ -121,118 +41,135 @@ pub struct Expectation {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct Metadata {
+    #[serde(deserialize_with = "version")]
     pub version: u32,
     pub identity: Identity,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub contract: Option<Contract>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    #[serde(
+        default,
+        deserialize_with = "aliases",
+        skip_serializing_if = "BTreeMap::is_empty"
+    )]
     pub requires: BTreeMap<String, Expectation>,
 }
 
-impl Identity {
-    pub fn is_valid(&self) -> bool {
-        !self.name.is_empty() && !self.version.is_empty()
-    }
+#[derive(Serialize, Deserialize)]
+struct Wire {
+    tools: Vec<WireTool>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    resources: Vec<WireResource>,
 }
 
-impl Contract {
-    pub fn validate(&self) -> Result<(), String> {
-        for (name, tool) in &self.tools {
-            if name.is_empty() || !is_object_schema(&tool.input.0) {
-                return Err("invalid MCP tool contract".into());
+#[derive(Serialize, Deserialize)]
+struct WireTool {
+    name: String,
+    #[serde(rename = "inputSchema")]
+    input: Schema,
+    #[serde(
+        rename = "outputSchema",
+        default,
+        deserialize_with = "present",
+        skip_serializing_if = "Option::is_none"
+    )]
+    output: Option<Schema>,
+}
+
+#[derive(Serialize, Deserialize)]
+struct WireResource {
+    uri: String,
+    #[serde(rename = "outputSchema")]
+    output: Schema,
+}
+
+impl TryFrom<Wire> for Contract {
+    type Error = String;
+
+    fn try_from(wire: Wire) -> Result<Self, String> {
+        let mut contract = Self::default();
+        for WireTool {
+            name,
+            input,
+            output,
+        } in wire.tools
+        {
+            if input.get("type") != Some(&Value::from("object")) {
+                return Err(format!("{name}: inputSchema must have type object"));
             }
-            if tool
-                .output
-                .as_ref()
-                .is_some_and(|schema| !schema.0.is_object())
+            if name.is_empty()
+                || contract
+                    .tools
+                    .insert(name, Tool { input, output })
+                    .is_some()
             {
-                return Err("invalid MCP tool contract".into());
+                return Err("tool names must be nonempty and unique".into());
             }
         }
-        for (uri, resource) in &self.resources {
-            if uri.is_empty() || !resource.output.0.is_object() {
-                return Err("invalid MCP resource contract".into());
+        for WireResource { uri, output } in wire.resources {
+            if uri.is_empty()
+                || contract
+                    .resources
+                    .insert(uri, Resource { output })
+                    .is_some()
+            {
+                return Err("resource URIs must be nonempty and unique".into());
             }
         }
-        Ok(())
+        Ok(contract)
     }
 }
 
-impl Expectation {
-    pub fn validate(&self) -> Result<(), String> {
-        if !self.identity.is_valid() {
-            return Err("invalid MCP expectation identity".into());
+impl From<Contract> for Wire {
+    fn from(contract: Contract) -> Self {
+        Self {
+            tools: contract
+                .tools
+                .into_iter()
+                .map(|(name, Tool { input, output })| WireTool {
+                    name,
+                    input,
+                    output,
+                })
+                .collect(),
+            resources: contract
+                .resources
+                .into_iter()
+                .map(|(uri, Resource { output })| WireResource { uri, output })
+                .collect(),
         }
-        self.contract.validate()
     }
 }
 
-impl Metadata {
-    pub fn validate(&self) -> Result<(), String> {
-        if self.version != 1 || !self.identity.is_valid() {
-            return Err("invalid Holon MCP contract metadata version or identity".into());
-        }
-        if let Some(contract) = &self.contract {
-            contract.validate()?;
-        }
-        for (alias, expected) in &self.requires {
-            if alias.is_empty() {
-                return Err("invalid Holon MCP dependency identity".into());
-            }
-            expected.validate()?;
-        }
-        Ok(())
+/// Rejects `"outputSchema": null`, which `Option` would otherwise read as absent.
+fn present<'de, D: Deserializer<'de>>(deserializer: D) -> Result<Option<Schema>, D::Error> {
+    Schema::deserialize(deserializer).map(Some)
+}
+
+fn non_empty<'de, D: Deserializer<'de>>(deserializer: D) -> Result<String, D::Error> {
+    let value = String::deserialize(deserializer)?;
+    if value.is_empty() {
+        return Err(D::Error::custom(
+            "identity name and version must be nonempty",
+        ));
+    }
+    Ok(value)
+}
+
+fn version<'de, D: Deserializer<'de>>(deserializer: D) -> Result<u32, D::Error> {
+    match u32::deserialize(deserializer)? {
+        1 => Ok(1),
+        version => Err(D::Error::custom(format!(
+            "unsupported metadata version {version}"
+        ))),
     }
 }
 
-fn is_object_schema(value: &Value) -> bool {
-    value.get("type").and_then(Value::as_str) == Some("object")
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn contract_wire_round_trip_is_sorted_and_preserves_v1_arrays() {
-        let contract: Contract = serde_json::from_value(json!({
-            "tools": [
-                {"name":"z", "inputSchema":{"type":"object"}},
-                {"name":"a", "inputSchema":{"type":"object"}}
-            ],
-            "resources": [
-                {"uri":"z://r", "outputSchema":{"type":"object"}},
-                {"uri":"a://r", "outputSchema":{"type":"object"}}
-            ]
-        }))
-        .unwrap();
-        assert_eq!(
-            serde_json::to_value(&contract).unwrap(),
-            json!({
-                "tools": [
-                    {"name":"a", "inputSchema":{"type":"object"}},
-                    {"name":"z", "inputSchema":{"type":"object"}}
-                ],
-                "resources": [
-                    {"uri":"a://r", "outputSchema":{"type":"object"}},
-                    {"uri":"z://r", "outputSchema":{"type":"object"}}
-                ]
-            })
-        );
+fn aliases<'de, D: Deserializer<'de>>(
+    deserializer: D,
+) -> Result<BTreeMap<String, Expectation>, D::Error> {
+    let requires = BTreeMap::<String, Expectation>::deserialize(deserializer)?;
+    if requires.contains_key("") {
+        return Err(D::Error::custom("dependency aliases must be nonempty"));
     }
-
-    #[test]
-    fn duplicate_wire_names_are_rejected() {
-        let duplicate_tool = json!({"tools":[
-            {"name":"read", "inputSchema":{"type":"object"}},
-            {"name":"read", "inputSchema":{"type":"object"}}
-        ]});
-        let duplicate_resource = json!({"tools":[], "resources":[
-            {"uri":"orders://r", "outputSchema":{"type":"object"}},
-            {"uri":"orders://r", "outputSchema":{"type":"object"}}
-        ]});
-        assert!(serde_json::from_value::<Contract>(duplicate_tool).is_err());
-        assert!(serde_json::from_value::<Contract>(duplicate_resource).is_err());
-    }
+    Ok(requires)
 }

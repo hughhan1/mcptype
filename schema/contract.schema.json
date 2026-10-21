@@ -14,7 +14,6 @@
       "additionalProperties": {"$ref": "#/$defs/expectation"}
     }
   },
-  "additionalProperties": false,
   "$defs": {
     "identity": {
       "type": "object",
@@ -22,8 +21,7 @@
       "properties": {
         "name": {"type": "string", "minLength": 1},
         "version": {"type": "string", "minLength": 1}
-      },
-      "additionalProperties": false
+      }
     },
     "schema": {"type": "object"},
     "tool": {
@@ -33,8 +31,7 @@
         "name": {"type": "string", "minLength": 1},
         "inputSchema": {"allOf": [{"$ref": "#/$defs/schema"}], "properties": {"type": {"const": "object"}}, "required": ["type"]},
         "outputSchema": {"$ref": "#/$defs/schema"}
-      },
-      "additionalProperties": false
+      }
     },
     "resource": {
       "type": "object",
@@ -42,8 +39,7 @@
       "properties": {
         "uri": {"type": "string", "minLength": 1},
         "outputSchema": {"$ref": "#/$defs/schema"}
-      },
-      "additionalProperties": false
+      }
     },
     "contract": {
       "type": "object",
@@ -51,8 +47,7 @@
       "properties": {
         "tools": {"type": "array", "items": {"$ref": "#/$defs/tool"}},
         "resources": {"type": "array", "items": {"$ref": "#/$defs/resource"}}
-      },
-      "additionalProperties": false
+      }
     },
     "expectation": {
       "type": "object",
@@ -60,8 +55,7 @@
       "properties": {
         "identity": {"$ref": "#/$defs/identity"},
         "contract": {"$ref": "#/$defs/contract"}
-      },
-      "additionalProperties": false
+      }
     }
   }
 }

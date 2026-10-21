@@ -9,6 +9,7 @@ mcptype_request *mcptype_request_create(const char *data, size_t len);
 void mcptype_request_cancel(const mcptype_request *request);
 void mcptype_request_free(mcptype_request *request);
 mcptype_response mcptype_compile(const mcptype_request *request);
+/* JSON in and out; see mcptype::json. Only compile observes cancellation. */
 mcptype_response mcptype_canonical(const mcptype_request *request);
 mcptype_response mcptype_changes(const mcptype_request *request);
 #endif

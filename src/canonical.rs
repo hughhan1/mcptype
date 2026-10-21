@@ -1,10 +1,6 @@
-use crate::{
-    Error,
-    contract::{Contract, Schema},
-};
-use ring::digest::{SHA256, digest as sha256};
-use serde::Deserialize;
-use serde_json::{Value, json};
+use crate::contract::{Contract, Resource, Schema, Tool};
+use serde_json::Value;
+use sha2::{Digest, Sha256};
 
 const ANNOTATIONS: &[&str] = &["description", "title", "$comment", "examples"];
 const UNORDERED: &[&str] = &["required", "enum", "type", "allOf", "anyOf", "oneOf"];
@@ -32,165 +28,116 @@ const SCHEMA_VALUES: &[&str] = &[
     "contentSchema",
 ];
 
-pub fn canonical(schema: &Schema) -> Value {
-    let mut value = schema.0.clone();
-    normalize(&mut value);
-    value
+/// Drops annotations and sorts order-insensitive keywords, recursively.
+pub fn canonical(schema: &Schema) -> Schema {
+    let mut schema = schema.clone();
+    normalize_object(&mut schema);
+    schema
 }
 
+/// The contract with every schema in canonical form.
+pub fn canonical_contract(contract: &Contract) -> Contract {
+    Contract {
+        tools: contract
+            .tools
+            .iter()
+            .map(|(name, tool)| {
+                let tool = Tool {
+                    input: canonical(&tool.input),
+                    output: tool.output.as_ref().map(canonical),
+                };
+                (name.clone(), tool)
+            })
+            .collect(),
+        resources: contract
+            .resources
+            .iter()
+            .map(|(uri, resource)| {
+                (
+                    uri.clone(),
+                    Resource {
+                        output: canonical(&resource.output),
+                    },
+                )
+            })
+            .collect(),
+    }
+}
+
+/// `sha256:<hex>` of the canonical contract's JSON with sorted keys and no whitespace.
 pub fn digest(contract: &Contract) -> String {
-    digest_value(&contract_value(contract))
+    hash(&serde_json::to_value(canonical_contract(contract)).expect("contracts serialize"))
 }
 
-pub fn canonical_json(input: &str) -> Result<String, Error> {
-    #[derive(Deserialize)]
-    struct Request {
-        #[serde(default)]
-        contract: Option<Contract>,
-        #[serde(default)]
-        schema: Option<Schema>,
-    }
-
-    let request: Request = serde_json::from_str(input)?;
-    match (request.contract, request.schema) {
-        (Some(contract), None) => {
-            contract.validate().map_err(Error::Contract)?;
-            Ok(serde_json::to_string(&json!({
-                "canonical": contract_value(&contract),
-                "digest": digest(&contract)
-            }))?)
-        }
-        (None, Some(schema)) if schema.0.is_object() => {
-            let value = canonical(&schema);
-            let schema_digest = digest_value(&value);
-            Ok(serde_json::to_string(&json!({
-                "canonical": value,
-                "digest": schema_digest
-            }))?)
-        }
-        (None, Some(_)) => Err(Error::Contract("schema must be a JSON object".into())),
-        (None, None) => Err(Error::Contract("expected a contract or schema".into())),
-        (Some(_), Some(_)) => Err(Error::Contract(
-            "provide a contract or schema, not both".into(),
-        )),
-    }
-}
-
-fn contract_value(contract: &Contract) -> Value {
-    let mut contract = contract.clone();
-    for tool in contract.tools.values_mut() {
-        normalize(&mut tool.input.0);
-        tool.output = tool.output.take().map(|mut schema| {
-            normalize(&mut schema.0);
-            schema
-        });
-    }
-    for resource in contract.resources.values_mut() {
-        normalize(&mut resource.output.0);
-    }
-    serde_json::to_value(contract).expect("contracts are serializable")
-}
-
-fn digest_value(value: &Value) -> String {
-    let bytes = serde_json::to_vec(value).expect("JSON values are serializable");
-    let hash = sha256(&SHA256, &bytes);
-    let hex = hash
-        .as_ref()
+pub(crate) fn hash(value: &Value) -> String {
+    let hex: String = Sha256::digest(encode(value))
         .iter()
         .map(|byte| format!("{byte:02x}"))
-        .collect::<String>();
+        .collect();
     format!("sha256:{hex}")
+}
+
+/// Compact JSON with object keys sorted, independent of serde_json's map ordering feature.
+fn encode(value: &Value) -> Vec<u8> {
+    fn write(value: &Value, out: &mut Vec<u8>) {
+        match value {
+            Value::Object(object) => {
+                let mut entries: Vec<_> = object.iter().collect();
+                entries.sort_unstable_by_key(|(key, _)| *key);
+                out.push(b'{');
+                for (index, (key, item)) in entries.into_iter().enumerate() {
+                    if index > 0 {
+                        out.push(b',');
+                    }
+                    serde_json::to_writer(&mut *out, key).expect("strings serialize");
+                    out.push(b':');
+                    write(item, out);
+                }
+                out.push(b'}');
+            }
+            Value::Array(items) => {
+                out.push(b'[');
+                for (index, item) in items.iter().enumerate() {
+                    if index > 0 {
+                        out.push(b',');
+                    }
+                    write(item, out);
+                }
+                out.push(b']');
+            }
+            scalar => serde_json::to_writer(&mut *out, scalar).expect("scalars serialize"),
+        }
+    }
+    let mut out = Vec::new();
+    write(value, &mut out);
+    out
 }
 
 fn normalize(value: &mut Value) {
     match value {
-        Value::Object(object) => {
-            object.retain(|key, _| !ANNOTATIONS.contains(&key.as_str()));
-            for (key, item) in object.iter_mut() {
-                if UNORDERED.contains(&key.as_str()) {
-                    if let Value::Array(items) = item {
-                        if key.as_str() != "enum" {
-                            for item in items.iter_mut() {
-                                normalize(item);
-                            }
-                        }
-                        items.sort_by_cached_key(|item| {
-                            serde_json::to_vec(item).expect("JSON values are serializable")
-                        });
-                    }
-                } else if SCHEMA_MAPS.contains(&key.as_str()) {
-                    if let Value::Object(schemas) = item {
-                        for schema in schemas.values_mut() {
-                            normalize(schema);
-                        }
-                    }
-                } else if SCHEMA_VALUES.contains(&key.as_str()) {
-                    normalize(item);
-                }
-            }
-        }
-        Value::Array(items) => {
-            for item in items {
-                normalize(item);
-            }
-        }
+        Value::Object(object) => normalize_object(object),
+        Value::Array(items) => items.iter_mut().for_each(normalize),
         _ => {}
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use serde_json::json;
-
-    #[test]
-    fn canonical_schema_drops_annotations_sorts_unordered_keywords_and_recurses() {
-        let input = Schema(json!({
-            "type":"object", "description":"ignored", "required":["z","a"],
-            "properties": {
-                "x":{"type":["string","null"], "title":"ignored", "enum":["z","a"]},
-                "y":{"not":{"type":"string", "$comment":"ignored"}}
-            },
-            "dependentSchemas":{"description":{"required":["b","a"]}}
-        }));
-        assert_eq!(
-            canonical(&input),
-            json!({
-                "type":"object", "required":["a","z"],
-                "properties": {
-                    "x":{"type":["null","string"], "enum":["a","z"]},
-                    "y":{"not":{"type":"string"}}
-                },
-                "dependentSchemas":{"description":{"required":["a","b"]}}
-            })
-        );
-    }
-
-    #[test]
-    fn digest_ignores_documentation_and_wire_order() {
-        let left: Contract = serde_json::from_value(json!({
-            "tools":[
-                {"name":"z","inputSchema":{"type":"object"}},
-                {"name":"a","inputSchema":{"type":"object","title":"before"}}
-            ]
-        }))
-        .unwrap();
-        let right: Contract = serde_json::from_value(json!({
-            "tools":[
-                {"name":"a","inputSchema":{"title":"after","type":"object"}},
-                {"name":"z","inputSchema":{"type":"object"}}
-            ]
-        }))
-        .unwrap();
-        assert_eq!(digest(&left), digest(&right));
-    }
-
-    #[test]
-    fn annotations_inside_dependency_names_are_not_dropped() {
-        let left =
-            Schema(json!({"type":"object","dependentSchemas":{"description":{"required":["a"]}}}));
-        let right =
-            Schema(json!({"type":"object","dependentSchemas":{"description":{"required":["b"]}}}));
-        assert_ne!(canonical(&left), canonical(&right));
+fn normalize_object(object: &mut Schema) {
+    object.retain(|key, _| !ANNOTATIONS.contains(&key.as_str()));
+    for (key, item) in object.iter_mut() {
+        let key = key.as_str();
+        if UNORDERED.contains(&key) {
+            if let Value::Array(items) = item {
+                if key != "enum" {
+                    items.iter_mut().for_each(normalize);
+                }
+                items.sort_by_cached_key(encode);
+            }
+        } else if SCHEMA_MAPS.contains(&key) {
+            if let Value::Object(schemas) = item {
+                schemas.values_mut().for_each(normalize);
+            }
+        } else if SCHEMA_VALUES.contains(&key) {
+            normalize(item);
+        }
     }
 }

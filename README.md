@@ -2,21 +2,18 @@
 
 `mcptype` is the language-independent core for typed MCP contracts. It validates and serializes the v1 contract document, canonicalizes JSON Schemas, reports compatibility changes, and compiles tool schemas to TypeScript, Python, or Go declarations. It has no transport client and does not discover servers.
 
-Static source extractors and app runtimes live in the Holon SDK. They pass contracts to this crate or its Node and Python bindings.
-
 ## Install
 
-The Rust crate and native bindings are built from this repository. The C ABI is packaged as a static library for hosts such as Go. Image builds can vendor these artifacts without a package registry credential.
+Build the crate and native bindings from this repository. The C ABI is packaged as a static library by `ffi/package-sdk.py` for hosts such as Go.
 
 ## CLI
 
 ```sh
 mcptype compile < request.json
-mcptype schema contract
 mcptype diff expected.json published.json
 ```
 
-`compile` reads a JSON compile request from stdin and writes declarations as JSON. `schema contract` prints the JSON Schema for the v1 metadata document. `diff` prints one breaking-change message per line and exits with status 1 when the caller's expectation is no longer satisfied.
+`compile` reads a JSON compile request from stdin and writes declarations as JSON. `diff` prints one breaking-change message per line and exits with status 1 when the caller's expectation is no longer satisfied.
 
 ## Rust API
 
@@ -38,7 +35,7 @@ let generated = compile(Request {
 println!("{}", generated.declarations);
 ```
 
-`Contract` stores tools by name and resources by URI. Its JSON adapters preserve the v1 wire format (arrays) and serialize them in sorted order. `canonical` removes schema annotations and sorts order-insensitive JSON Schema keywords. `digest` returns a SHA-256 digest of the canonical contract. `changes` returns typed change records; an empty list means the expectation is compatible with published metadata.
+`Contract` stores tools by name and resources by URI and keeps the v1 wire format (arrays), written in sorted order. Deserializing a contract or metadata document validates it; there is no separate validation call. `canonical` removes schema annotations and sorts order-insensitive JSON Schema keywords. `digest` returns the SHA-256 of the canonical contract encoded as compact JSON with sorted keys. `changes` returns typed change records; an empty list means the expectation is compatible with published metadata.
 
 ## Node and Python bindings
 
@@ -85,7 +82,7 @@ A metadata document has `version: 1`, an `identity`, an optional app `contract`,
 }
 ```
 
-Descriptions, titles, `$comment`, and examples do not affect compatibility. Additive tools and resources do not break callers. Changes to an expected tool's input or output, or to an expected resource's output, are reported in deterministic name and URI order. The exact display text is stable for CLI and Holon diagnostics.
+Descriptions, titles, `$comment`, and examples do not affect compatibility. Additive tools and resources do not break callers. Changes to an expected tool's input or output, or to an expected resource's output, are reported in deterministic name and URI order. The exact display text is stable for CLI and host diagnostics.
 
 ## Go declarations
 
@@ -104,4 +101,4 @@ Closed objects produce structs, arrays produce slices, and homogeneous maps reta
 | `schema/` | Published contract JSON Schema |
 | `tests/vectors/` | Canonicalization and compatibility vectors shared across bindings |
 
-The contract tests run across Rust, Node, and Python so serialization and comparison stay byte-for-byte consistent.
+`schema/contract.schema.json` documents the wire format. Rust, Node, and Python run the same vectors, including the digests.
