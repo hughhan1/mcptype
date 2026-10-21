@@ -1,4 +1,4 @@
-use clap::Parser;
+use clap::{Parser, Subcommand};
 use mcptype::{Expectation, Metadata, Request, changes};
 use std::{error::Error, fs, io, path::PathBuf, process};
 
@@ -12,6 +12,16 @@ enum Cli {
         expected: PathBuf,
         published: PathBuf,
     },
+    /// Print the published contract JSON Schema.
+    Schema {
+        #[command(subcommand)]
+        schema: SchemaCommand,
+    },
+}
+
+#[derive(Subcommand)]
+enum SchemaCommand {
+    Contract,
 }
 
 fn run() -> Result<bool, Box<dyn Error>> {
@@ -32,6 +42,12 @@ fn run() -> Result<bool, Box<dyn Error>> {
                 println!("{change}");
             }
             Ok(changes.is_empty())
+        }
+        Cli::Schema {
+            schema: SchemaCommand::Contract,
+        } => {
+            print!("{}", include_str!("../../schema/contract.schema.json"));
+            Ok(true)
         }
     }
 }
