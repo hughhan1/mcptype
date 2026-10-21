@@ -28,11 +28,11 @@ fn block(header: &str, lines: &[String], indent: &str) -> String {
     )
 }
 
-fn overloaded(lines: Vec<String>, indent: &str) -> Vec<String> {
+fn overloaded(lines: Vec<String>) -> Vec<String> {
     if lines.len() > 1 {
         lines
             .into_iter()
-            .map(|s| format!("{indent}@_typing.overload\n{s}"))
+            .map(|s| format!("    @_typing.overload\n{s}"))
             .collect()
     } else {
         lines
@@ -134,7 +134,8 @@ pub(crate) fn generate(contracts: &BTreeMap<String, Catalog>) -> String {
     let mut clients = Vec::new();
     let mut exports =
         ["Inputs", "Outputs", "InputTypes", "OutputTypes"].map(|name| (name, Vec::new()));
-    let mut connects = Vec::new();
+    let mut fields = Vec::new();
+    let mut indices = Vec::new();
     for (index, (binding, catalog)) in contracts.iter().enumerate() {
         let mut methods = Vec::new();
         let mut calls = Vec::new();
@@ -172,13 +173,14 @@ pub(crate) fn generate(contracts: &BTreeMap<String, Catalog>) -> String {
             "    ",
         ));
         let mut app = vec![format!("    tools: _Tools{index}")];
-        app.extend(overloaded(calls, "    "));
+        app.extend(overloaded(calls));
         clients.push(block(
             &format!("class _App{index}(_typing.Protocol):"),
             &app,
             "    ",
         ));
         if identifier(binding) {
+            fields.push(format!("    {binding}: _App{index}"));
             for ((_, bindings), members) in exports.iter_mut().zip(app_exports) {
                 bindings.push(block(
                     &format!("    class {binding}:"),
@@ -187,19 +189,18 @@ pub(crate) fn generate(contracts: &BTreeMap<String, Catalog>) -> String {
                 ));
             }
         }
-        connects.push(format!("def mcp(name: _typing.Literal[{}], *, url: _builtins.str | None = ..., headers: _builtins.dict[_builtins.str, _builtins.str] | None = ...) -> _contextlib.AbstractAsyncContextManager[_App{index}]: ...", quoted(binding)));
+        indices.push(format!(
+            "    def __getitem__(self, name: _typing.Literal[{}]) -> _App{index}: ...",
+            quoted(binding)
+        ));
     }
-    if connects.is_empty() {
-        connects.push("def mcp(name: _typing.Never) -> _contextlib.AbstractAsyncContextManager[_builtins.object]: ...".into());
-    }
-    let mut sections = vec![
-        "import builtins as _builtins\nimport contextlib as _contextlib\nimport typing as _typing\n\nfrom mcp.types import InputResponses as _InputResponses, RequestParamsMeta as _RequestParamsMeta\n\nfrom .client import ToolCallError as ToolCallError, ToolResult as _ToolResult".into(),
-    ];
+    let mut sections = vec!["import builtins as _builtins\nimport typing as _typing".into()];
     sections.extend(emitter.shapes);
     sections.extend(
         exports.map(|(name, bindings)| block(&format!("class {name}:"), &bindings, "    ")),
     );
     sections.extend(clients);
-    sections.push(overloaded(connects, "").join("\n"));
+    fields.extend(overloaded(indices));
+    sections.push(block("class _Clients(_typing.Protocol):", &fields, "    "));
     sections.join("\n\n") + "\n"
 }

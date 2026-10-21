@@ -116,3 +116,27 @@ func TestContract(t *testing.T) {
         String::from_utf8_lossy(&result.stderr)
     );
 }
+
+#[test]
+fn declarations_are_plain_modules_without_runtime_clients() {
+    let contracts = json!({"files":{"tools":[{"name":"read", "inputSchema":{"type":"object"}}]}});
+    let typescript = compile_contracts(Language::TypeScript, contracts.clone())
+        .unwrap()
+        .declarations;
+    assert!(
+        typescript.starts_with("export interface Inputs {"),
+        "{typescript}"
+    );
+    assert!(!typescript.contains("mcptype"), "{typescript}");
+    let python = compile_contracts(Language::Python, contracts)
+        .unwrap()
+        .declarations;
+    assert!(
+        python.contains("class _Clients(_typing.Protocol):"),
+        "{python}"
+    );
+    assert!(
+        !python.contains("def mcp(") && !python.contains("from mcp"),
+        "{python}"
+    );
+}

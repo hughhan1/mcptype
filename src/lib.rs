@@ -40,17 +40,6 @@ pub enum Language {
 }
 
 impl Language {
-    pub const ALL: [Self; 3] = [Self::TypeScript, Self::Python, Self::Go];
-
-    /// Where the CLI writes this language's declarations, relative to `mcptype.lock.json`.
-    pub fn path(self) -> &'static str {
-        match self {
-            Self::TypeScript => "mcptype-env.d.ts",
-            Self::Python => "typings/mcptype/__init__.pyi",
-            Self::Go => "mcptype-env.go",
-        }
-    }
-
     fn generate(
         self,
         contracts: &BTreeMap<String, Catalog>,
@@ -92,6 +81,7 @@ impl Catalog {
     fn parse(contract: Contract, cancelled: &AtomicBool) -> Result<Self, Error> {
         let mut tools = BTreeMap::new();
         for (name, tool) in contract.tools {
+            check_cancelled(cancelled)?;
             let input = schema::Shape::parse(&Value::Object(tool.input), cancelled)?;
             let output = match tool.output {
                 Some(output) => schema::Shape::parse(&Value::Object(output), cancelled)?,
@@ -120,6 +110,7 @@ pub fn compile_cancellable(request: Request, cancelled: &AtomicBool) -> Result<G
         })
         .collect::<Result<_, Error>>()?;
     let (declarations, bindings) = request.language.generate(&contracts);
+    check_cancelled(cancelled)?;
     Ok(Generated {
         declarations,
         bindings,
