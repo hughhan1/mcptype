@@ -19,7 +19,9 @@ export type Change =
   | { kind: "identity"; expected: Identity; published: Identity; text: string }
   | { kind: "tool_removed" | "tool_input_changed" | "tool_output_changed"; name: string; text: string }
   | { kind: "resource_removed" | "resource_output_changed"; uri: string; text: string };
-export type CanonicalRequest = { contract: Contract } | { schema: JsonSchema };
+export type CanonicalRequest = { contract: Contract } | { schema: JsonSchema } | { metadata: Metadata };
 export function compile(request: CompileRequest): Promise<{ declarations: string; bindings?: Record<string, unknown> }>;
-export function canonical(request: CanonicalRequest): Promise<{ canonical: JsonSchema | Contract; digest: string }>;
+export function canonical(request: { contract: Contract }): Promise<{ canonical: Contract; digest: string }>;
+export function canonical(request: { schema: JsonSchema }): Promise<{ canonical: JsonSchema; digest: string }>;
+export function canonical(request: { metadata: Metadata }): Promise<{ canonical: Contract | null; digest: string | null }>;
 export function changes(request: { expected: Expectation; published: Metadata | null }): Promise<{ changes: Change[] }>;

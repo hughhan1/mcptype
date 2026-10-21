@@ -263,6 +263,92 @@
         },
         "digest": "sha256:ce5b4f183ca78963b0c0d8f4a99930827275540f2e1e68068a3931c525897c13"
       }
+    },
+    {
+      "input": {
+        "metadata": {
+          "version": 1,
+          "identity": {
+            "name": "orders",
+            "version": "1.2.0"
+          },
+          "contract": {
+            "tools": [
+              {
+                "name": "get",
+                "inputSchema": {
+                  "type": "object",
+                  "description": "docs",
+                  "required": [
+                    "b",
+                    "a"
+                  ]
+                }
+              }
+            ],
+            "resources": [
+              {
+                "uri": "orders://summary",
+                "outputSchema": {
+                  "type": "object",
+                  "title": "summary"
+                }
+              }
+            ]
+          },
+          "requires": {
+            "billing": {
+              "identity": {
+                "name": "billing",
+                "version": "2.0.0"
+              },
+              "contract": {
+                "tools": []
+              }
+            }
+          }
+        }
+      },
+      "output": {
+        "canonical": {
+          "tools": [
+            {
+              "name": "get",
+              "inputSchema": {
+                "required": [
+                  "a",
+                  "b"
+                ],
+                "type": "object"
+              }
+            }
+          ],
+          "resources": [
+            {
+              "uri": "orders://summary",
+              "outputSchema": {
+                "type": "object"
+              }
+            }
+          ]
+        },
+        "digest": "sha256:33b664de30dcad2d1d24b069249079d7676c10679ce162831323e7e1f126a807"
+      }
+    },
+    {
+      "input": {
+        "metadata": {
+          "version": 1,
+          "identity": {
+            "name": "orders",
+            "version": "1.2.0"
+          }
+        }
+      },
+      "output": {
+        "canonical": null,
+        "digest": null
+      }
     }
   ],
   "changes": [

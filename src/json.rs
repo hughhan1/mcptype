@@ -11,24 +11,33 @@ pub fn compile(input: &[u8], cancelled: &AtomicBool) -> Result<String, Error> {
     )?)?)
 }
 
-/// `{"contract": Contract}` or `{"schema": {...}}` to `{"canonical", "digest"}`.
+/// `{"contract": Contract}`, `{"schema": {...}}` or `{"metadata": Metadata}` to
+/// `{"canonical", "digest"}`; both are `null` for metadata without a contract.
 pub fn canonical(input: &[u8]) -> Result<String, Error> {
     #[derive(Deserialize)]
     #[serde(rename_all = "lowercase")]
     enum Request {
         Contract(Contract),
         Schema(Schema),
+        Metadata(Box<Metadata>),
     }
+    let contract = |contract: &Contract| -> Result<_, Error> {
+        Ok((
+            serde_json::to_value(canonical_contract(contract))?,
+            digest(contract).into(),
+        ))
+    };
     let (canonical, digest) = match serde_json::from_slice(input)? {
-        Request::Contract(contract) => (
-            serde_json::to_value(canonical_contract(&contract))?,
-            digest(&contract),
-        ),
+        Request::Contract(document) => contract(&document)?,
         Request::Schema(schema) => {
             let schema = Value::Object(crate::canonical(&schema));
-            let digest = crate::canonical::hash(&schema);
+            let digest = crate::canonical::hash(&schema).into();
             (schema, digest)
         }
+        Request::Metadata(metadata) => match &metadata.contract {
+            Some(document) => contract(document)?,
+            None => (Value::Null, Value::Null),
+        },
     };
     Ok(serde_json::to_string(
         &json!({"canonical": canonical, "digest": digest}),

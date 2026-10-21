@@ -35,7 +35,7 @@ let generated = compile(Request {
 println!("{}", generated.declarations);
 ```
 
-`Contract` stores tools by name and resources by URI and keeps the v1 wire format (arrays), written in sorted order. Deserializing a contract or metadata document validates it; there is no separate validation call. `canonical` removes schema annotations and sorts order-insensitive JSON Schema keywords. `digest` returns the SHA-256 of the canonical contract encoded as compact JSON with sorted keys. `changes` returns typed change records; an empty list means the expectation is compatible with published metadata.
+`Contract` stores tools by name and resources by URI and keeps the v1 wire format (arrays), written in sorted order. Deserializing a contract or metadata document validates it; there is no separate validation call. `canonical` removes schema annotations and sorts order-insensitive JSON Schema keywords; the binding entry point accepts `{"contract"}`, `{"schema"}` or `{"metadata"}`, so a published metadata document can be validated and digested in one call (`canonical` and `digest` are `null` when it has no contract). `digest` returns the SHA-256 of the canonical contract encoded as compact JSON with sorted keys. `changes` returns typed change records; an empty list means the expectation is compatible with published metadata.
 
 ## Node and Python bindings
 
