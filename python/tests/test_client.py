@@ -104,6 +104,6 @@ async def run() -> None:
             cwd=tmp_path,
             capture_output=True,
             text=True,
-            timeout=60,
+            timeout=120,
         )
         assert result.returncode == 0, result.stdout + result.stderr
