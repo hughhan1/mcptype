@@ -303,7 +303,7 @@ dependencies = [
 
 [[package]]
 name = "mcptype"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "base64",
  "clap",
@@ -315,7 +315,7 @@ dependencies = [
 
 [[package]]
 name = "mcptype-ffi"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "mcptype",
  "serde_json",
@@ -323,7 +323,7 @@ dependencies = [
 
 [[package]]
 name = "mcptype-node"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "mcptype",
  "napi",
@@ -333,7 +333,7 @@ dependencies = [
 
 [[package]]
 name = "mcptype-python"
-version = "0.0.4"
+version = "0.0.5"
 dependencies = [
  "mcptype",
  "pyo3",

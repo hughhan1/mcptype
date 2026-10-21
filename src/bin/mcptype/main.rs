@@ -4,6 +4,8 @@ use mcptype::{Expectation, GenerateRequest, Metadata, Request, changes};
 use serde_json::Value;
 use std::{error::Error, fs, io, path::PathBuf, process};
 
+mod check;
+
 #[derive(Parser)]
 #[command(version, about = "Compile and compare MCP contracts")]
 enum Cli {
@@ -16,6 +18,13 @@ enum Cli {
     },
     /// Write a generated package into a directory; the request's `runtime` values are file paths.
     Generate { request: PathBuf, output: PathBuf },
+    /// Verify a check.json's extracted sources, then type-check the app with tsc or mypy; exit with the checker's status.
+    Check {
+        request: PathBuf,
+        /// Only verify that the extracted sources are unchanged.
+        #[arg(long)]
+        verify_only: bool,
+    },
     /// Print the published contract JSON Schema.
     Schema {
         #[command(subcommand)]
@@ -63,10 +72,20 @@ fn run() -> Result<bool, Box<dyn Error>> {
             }
             Ok(true)
         }
+        Cli::Check {
+            request,
+            verify_only,
+        } => {
+            let status = check::run(&request, verify_only)?;
+            if status != 0 {
+                process::exit(status);
+            }
+            Ok(true)
+        }
         Cli::Schema {
             schema: SchemaCommand::Contract,
         } => {
-            print!("{}", include_str!("../../schema/contract.schema.json"));
+            print!("{}", include_str!("../../../schema/contract.schema.json"));
             Ok(true)
         }
     }

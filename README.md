@@ -12,9 +12,12 @@ Build the crate and native bindings from this repository. The C ABI is packaged 
 mcptype compile < request.json
 mcptype diff expected.json published.json
 mcptype generate request.json out/
+mcptype check check.json [--verify-only]
 ```
 
 `compile` reads a JSON compile request from stdin and writes declarations as JSON. `generate` writes one target's package into a directory; in its request file, `runtime` values are paths of files to copy in. `diff` prints one breaking-change message per line and exits with status 1 when the caller's expectation is no longer satisfied.
+
+`check` type-checks an app against its generated package. Its request names the app's `entry`, the SHA-256 of each `sources` file its contract was extracted from, and optionally `root` (default: the working directory), `language` (`typescript` or `python`, inferred from `entry`) and `check` (default `true`). It first fails if any source changed since extraction (`--verify-only` stops there), then runs the app's own `tsc` (`node_modules/typescript` at or above the root, else `tsc` on `PATH`; with its `tsconfig.json`, or strict NodeNext defaults on the entry) or `mypy` (with the nearest `.venv` or `venv` Python at or above the root, else `python3`), and exits with the checker's status.
 
 ## Rust API
 

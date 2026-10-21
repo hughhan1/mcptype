@@ -5,7 +5,7 @@ resolver = "3"
 
 [package]
 name = "mcptype"
-version = "0.0.4"
+version = "0.0.5"
 edition = "2024"
 license = "MIT"
 description = "MCP contracts for TypeScript, Python, and Go"
@@ -16,7 +16,7 @@ name = "mcptype"
 
 [[bin]]
 name = "mcptype"
-path = "src/bin/mcptype.rs"
+path = "src/bin/mcptype/main.rs"
 required-features = ["cli"]
 
 [features]
