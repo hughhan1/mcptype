@@ -1,5 +1,7 @@
+use base64::{Engine, engine::general_purpose::STANDARD};
 use clap::{Parser, Subcommand};
-use mcptype::{Expectation, Metadata, Request, changes};
+use mcptype::{Expectation, GenerateRequest, Metadata, Request, changes};
+use serde_json::Value;
 use std::{error::Error, fs, io, path::PathBuf, process};
 
 #[derive(Parser)]
@@ -12,6 +14,8 @@ enum Cli {
         expected: PathBuf,
         published: PathBuf,
     },
+    /// Write a generated package into a directory; the request's `runtime` values are file paths.
+    Generate { request: PathBuf, output: PathBuf },
     /// Print the published contract JSON Schema.
     Schema {
         #[command(subcommand)]
@@ -42,6 +46,22 @@ fn run() -> Result<bool, Box<dyn Error>> {
                 println!("{change}");
             }
             Ok(changes.is_empty())
+        }
+        Cli::Generate { request, output } => {
+            let mut request: Value = serde_json::from_slice(&fs::read(request)?)?;
+            if let Some(Value::Object(runtime)) = request.get_mut("runtime") {
+                for data in runtime.values_mut() {
+                    let path = data.as_str().ok_or("runtime values must be file paths")?;
+                    *data = STANDARD.encode(fs::read(path)?).into();
+                }
+            }
+            let request: GenerateRequest = serde_json::from_value(request)?;
+            for (path, data) in mcptype::generate(request)?.files {
+                let path = output.join(path);
+                fs::create_dir_all(path.parent().unwrap_or(&output))?;
+                fs::write(path, data)?;
+            }
+            Ok(true)
         }
         Cli::Schema {
             schema: SchemaCommand::Contract,
