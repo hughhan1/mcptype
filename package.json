@@ -14,7 +14,7 @@
     "typescript/compiler.mjs",
     "typescript/compiler.d.ts",
     "LICENSE",
-    "native"
+    "typescript/native"
   ],
   "engines": {"node": ">=22"},
   "scripts": {

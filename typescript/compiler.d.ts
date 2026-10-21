@@ -14,6 +14,15 @@ export interface CompileRequest {
   language: "typescript" | "python" | "go";
   contracts: Record<string, { tools: readonly { name: string; inputSchema: JsonSchema; outputSchema?: JsonSchema }[] }>;
 }
+export interface GenerateRequest {
+  target: "node" | "browser" | "python" | "go";
+  identity: Identity;
+  requires?: Record<string, Identity>;
+  contracts?: Record<string, Contract>;
+  runtime?: Record<string, string | Uint8Array>;
+  package_fields?: Record<string, unknown>;
+  go_module?: string;
+}
 export type Change =
   | { kind: "no_contract"; text: string }
   | { kind: "identity"; expected: Identity; published: Identity; text: string }
@@ -25,3 +34,4 @@ export function canonical(request: { contract: Contract }): Promise<{ canonical:
 export function canonical(request: { schema: JsonSchema }): Promise<{ canonical: JsonSchema; digest: string }>;
 export function canonical(request: { metadata: Metadata }): Promise<{ canonical: Contract | null; digest: string | null }>;
 export function changes(request: { expected: Expectation; published: Metadata | null }): Promise<{ changes: Change[] }>;
+export function generate(request: GenerateRequest): Promise<{ files: Record<string, string> }>;

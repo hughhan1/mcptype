@@ -87,6 +87,16 @@ unsafe extern "C" fn mcptype_changes(request: *const Request) -> Response {
     execute(request, |request| mcptype::json::changes(&request.input))
 }
 
+#[unsafe(no_mangle)]
+unsafe extern "C" fn mcptype_generate(request: *const Request) -> Response {
+    execute(request, |request| {
+        mcptype::generate_json(
+            std::str::from_utf8(&request.input)
+                .map_err(|error| mcptype::Error::Contract(error.to_string()))?,
+        )
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,6 +113,47 @@ mod tests {
             assert!(result["declarations"].as_str().is_some());
             mcptype_request_cancel(request);
             assert!(matches!(mcptype_compile(request).status, Status::Cancelled));
+            mcptype_request_free(request);
+        }
+    }
+    #[test]
+    fn c_requests_expose_canonical_and_changes() {
+        let schema = br#"{"schema":{"type":"object","description":"d","required":["z","a"]}}"#;
+        let expected = br#"{"expected":{"identity":{"name":"a","version":"1"},"contract":{"tools":[]}},"published":null}"#;
+        unsafe {
+            let request = mcptype_request_create(schema.as_ptr(), schema.len());
+            let response = mcptype_canonical(request);
+            assert!(matches!(response.status, Status::Ok));
+            let output = std::slice::from_raw_parts(response.data, response.len);
+            let result: serde_json::Value = serde_json::from_slice(output).unwrap();
+            assert_eq!(
+                result["canonical"]["required"],
+                serde_json::json!(["a", "z"])
+            );
+            assert!(result["digest"].as_str().unwrap().starts_with("sha256:"));
+            mcptype_request_free(request);
+
+            let request = mcptype_request_create(expected.as_ptr(), expected.len());
+            let response = mcptype_changes(request);
+            assert!(matches!(response.status, Status::Ok));
+            let output = std::slice::from_raw_parts(response.data, response.len);
+            let result: serde_json::Value = serde_json::from_slice(output).unwrap();
+            assert_eq!(result["changes"][0]["text"], "no published contract");
+            mcptype_request_free(request);
+        }
+    }
+
+    #[test]
+    fn c_request_generates_package_files() {
+        let input = br#"{"target":"node","identity":{"name":"app","version":"1"},"contracts":{},"package_fields":{"holon":"holon-generated-apps-v1"},"runtime":{"protocol.d.ts":"ZXhwb3J0IGludGVyZmFjZSBUb29sQ2xpZW50PUE7","runtime.mjs":"cnVudGltZQ==","THIRD-PARTY-NOTICES.txt":"bm90aWNl"}}"#;
+        unsafe {
+            let request = mcptype_request_create(input.as_ptr(), input.len());
+            let response = mcptype_generate(request);
+            assert!(matches!(response.status, Status::Ok));
+            let output = std::slice::from_raw_parts(response.data, response.len);
+            let result: serde_json::Value = serde_json::from_slice(output).unwrap();
+            assert!(result["files"]["index.js"].as_str().is_some());
+            assert!(result["files"]["runtime.mjs"].as_str().is_some());
             mcptype_request_free(request);
         }
     }

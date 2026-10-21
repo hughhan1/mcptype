@@ -24,4 +24,9 @@ mod _native {
     fn changes(input: &str) -> PyResult<String> {
         run(mcptype::json::changes(input.as_bytes()))
     }
+
+    #[pyfunction]
+    fn generate(input: &str) -> PyResult<String> {
+        mcptype::generate_json(input).map_err(|error| PyValueError::new_err(error.to_string()))
+    }
 }

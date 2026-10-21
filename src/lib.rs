@@ -1,6 +1,8 @@
-mod canonical;
-mod changes;
-mod contract;
+pub mod canonical;
+pub mod changes;
+pub mod check;
+pub mod contract;
+pub mod generate;
 mod go;
 pub mod json;
 mod python;
@@ -10,6 +12,7 @@ mod typescript;
 pub use canonical::{canonical, canonical_contract, digest};
 pub use changes::{Change, changes};
 pub use contract::{Contract, Expectation, Identity, Metadata, Resource, Schema, Tool};
+pub use generate::{GenerateRequest, GeneratedPackage, Target, generate, generate_json};
 pub use go::{Binding as GoBinding, Tool as GoTool};
 
 use serde::{Deserialize, Serialize};
@@ -40,6 +43,7 @@ pub enum Language {
 }
 
 impl Language {
+    pub const ALL: [Self; 3] = [Self::TypeScript, Self::Python, Self::Go];
     fn generate(
         self,
         contracts: &BTreeMap<String, Catalog>,
