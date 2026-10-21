@@ -4,7 +4,7 @@ use crate::{Contract, Error, Language, Resource, Tool};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 
-const BINDING_TYPES: &str = r#"export interface EndpointBinding { endpoint: URL | string; authProvider?: AuthProvider; installationUID?: string }
+const BINDING_TYPES: &str = r#"export interface EndpointBinding { endpoint: URL | string; authProvider?: AuthProvider; fetch?: (input: never, init?: never) => Promise<unknown>; installationUID?: string; scoped?: boolean }
 export interface HostBinding { host: { callServerTool(params: { name: string; arguments?: Record<string, unknown> }, options?: { signal?: AbortSignal }): Promise<unknown>; readServerResource(params: { uri: string }, options?: { signal?: AbortSignal }): Promise<unknown> } }
 export interface CreateOptions { validator?: (schema: object) => (value: unknown) => boolean }
 export declare function createApps<K extends keyof Apps>(bindings: { [A in K]: EndpointBinding | HostBinding }, options?: CreateOptions): Pick<Apps,K>;

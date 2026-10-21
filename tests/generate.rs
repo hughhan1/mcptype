@@ -113,7 +113,7 @@ await apps.payments.callTool({ name: "charge", arguments: { amount: 1 } });
 apps.payments.tools.charge;
 // @ts-expect-error
 apps.payments.resources["payments://summary"];
-createApps({ payments: { endpoint: "https://payments.example/mcp" } }).payments.callTool({ name: "x", arguments: {} });
+createApps({ payments: { endpoint: "https://payments.example/mcp", scoped: true, fetch: async (input: string, init?: { method?: string }) => ({ input, init }) } }).payments.callTool({ name: "x", arguments: {} });
 "#).unwrap();
     run(
         &directory,
