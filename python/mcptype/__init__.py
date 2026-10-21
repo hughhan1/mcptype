@@ -1,3 +1,3 @@
-from .compiler import canonical, changes, compile
+from .compiler import canonical, changes, compile, generate
 
-__all__ = ["canonical", "changes", "compile"]
+__all__ = ["canonical", "changes", "compile", "generate"]

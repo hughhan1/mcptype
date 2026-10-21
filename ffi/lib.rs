@@ -87,6 +87,11 @@ unsafe extern "C" fn mcptype_changes(request: *const Request) -> Response {
     execute(request, |request| mcptype::json::changes(&request.input))
 }
 
+#[unsafe(no_mangle)]
+unsafe extern "C" fn mcptype_generate(request: *const Request) -> Response {
+    execute(request, |request| mcptype::json::generate(&request.input))
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

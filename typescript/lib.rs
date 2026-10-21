@@ -21,3 +21,8 @@ pub fn canonical(input: String) -> napi::Result<String> {
 pub fn changes(input: String) -> napi::Result<String> {
     run(mcptype::json::changes(input.as_bytes()))
 }
+
+#[napi_derive::napi]
+pub fn generate(input: String) -> napi::Result<String> {
+    run(mcptype::json::generate(input.as_bytes()))
+}

@@ -1,6 +1,7 @@
 mod canonical;
 mod changes;
 mod contract;
+mod generate;
 mod go;
 pub mod json;
 mod python;
@@ -10,6 +11,7 @@ mod typescript;
 pub use canonical::{canonical, canonical_contract, digest};
 pub use changes::{Change, changes};
 pub use contract::{Contract, Expectation, Identity, Metadata, Resource, Schema, Tool};
+pub use generate::{GenerateRequest, GeneratedPackage, Target, generate};
 pub use go::{Binding as GoBinding, Tool as GoTool};
 
 use serde::{Deserialize, Serialize};

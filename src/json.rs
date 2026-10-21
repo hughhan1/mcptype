@@ -62,3 +62,10 @@ pub fn changes(input: &[u8]) -> Result<String, Error> {
         .collect::<Result<Vec<_>, Error>>()?;
     Ok(serde_json::to_string(&json!({"changes": changes}))?)
 }
+
+/// `GenerateRequest` with base64 `runtime` values to `{"files": {path: base64}}`.
+pub fn generate(input: &[u8]) -> Result<String, Error> {
+    Ok(serde_json::to_string(&crate::generate(
+        serde_json::from_slice(input)?,
+    )?)?)
+}
