@@ -12,11 +12,13 @@ The Rust crate and native bindings are built from this repository. The C ABI is 
 
 ```sh
 mcptype compile < request.json
+mcptype generate request.json output.json
 mcptype schema contract
 mcptype diff expected.json published.json
+mcptype check check.json [--verify-only]
 ```
 
-`compile` reads a JSON compile request from stdin and writes declarations as JSON. `schema contract` prints the JSON Schema for the v1 metadata document. `diff` prints one breaking-change message per line and exits with status 1 when the caller's expectation is no longer satisfied.
+`compile` reads a JSON compile request from stdin and writes declarations as JSON. `generate` reads a package-generation request and runtime file paths from JSON, then writes the generated files as JSON. `schema contract` prints the JSON Schema for the v1 metadata document. `diff` prints one breaking-change message per line and exits with status 1 when the caller's expectation is no longer satisfied. `check` verifies source fingerprints and runs `tsc` or `mypy`; `--verify-only` skips the type checker.
 
 ## Rust API
 
@@ -42,24 +44,26 @@ println!("{}", generated.declarations);
 
 ## Node and Python bindings
 
-The Node binding exports `compile`, `canonical`, and `changes` from `mcptype/compiler`:
+The Node binding exports `compile`, `canonical`, `changes`, and `generate` from `mcptype/compiler`:
 
 ```js
-import { canonical, changes, compile } from "mcptype/compiler";
+import { canonical, changes, compile, generate } from "mcptype/compiler";
 
 const generated = await compile({ language: "typescript", contracts });
 const fingerprint = await canonical({ contract });
 const report = await changes({ expected, published });
+const files = await generate({ target: "node", identity, requires, contracts, runtime });
 ```
 
 The Python binding exposes the same functions from `mcptype.compiler`:
 
 ```python
-from mcptype.compiler import canonical, changes, compile
+from mcptype.compiler import canonical, changes, compile, generate
 
 result = compile({"language": "python", "contracts": contracts})
 fingerprint = canonical({"contract": contract})
 report = changes({"expected": expected, "published": published})
+files = generate({"target": "python", "identity": identity, "requires": requires, "contracts": contracts, "runtime": runtime})
 ```
 
 The bindings accept JSON-compatible objects and return JSON-compatible objects. They do not connect to MCP servers, write files, or provide runtime clients.
@@ -97,11 +101,11 @@ Closed objects produce structs, arrays produce slices, and homogeneous maps reta
 
 | Path | Contents |
 | --- | --- |
-| `src/` | Contract model, schema type tree, canonicalization, comparison, and declaration emitters |
+| `src/` | Contract model, schema type tree, canonicalization, comparison, package generators, and declaration emitters |
 | `ffi/` | Static C library and packaging script |
 | `typescript/` | Node-API binding and JavaScript wrapper |
 | `python/` | PyO3 binding and Python wrapper |
 | `schema/` | Published contract JSON Schema |
-| `tests/vectors/` | Canonicalization and compatibility vectors shared across bindings |
+| `tests/vectors/` | Contract, canonicalization, and compatibility vectors shared across bindings |
 
 The contract tests run across Rust, Node, and Python so serialization and comparison stay byte-for-byte consistent.

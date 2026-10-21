@@ -16,4 +16,9 @@ mod _native {
     fn changes(input: &str) -> PyResult<String> {
         mcptype::changes_json(input).map_err(|error| PyValueError::new_err(error.to_string()))
     }
+
+    #[pyfunction]
+    fn generate(input: &str) -> PyResult<String> {
+        mcptype::generate_json(input).map_err(|error| PyValueError::new_err(error.to_string()))
+    }
 }

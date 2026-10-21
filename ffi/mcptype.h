@@ -11,4 +11,5 @@ void mcptype_request_free(mcptype_request *request);
 mcptype_response mcptype_compile(const mcptype_request *request);
 mcptype_response mcptype_canonical(const mcptype_request *request);
 mcptype_response mcptype_changes(const mcptype_request *request);
+mcptype_response mcptype_generate(const mcptype_request *request);
 #endif

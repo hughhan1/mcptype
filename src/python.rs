@@ -134,7 +134,6 @@ pub(crate) fn generate(contracts: &BTreeMap<String, Catalog>) -> String {
     let mut clients = Vec::new();
     let mut exports =
         ["Inputs", "Outputs", "InputTypes", "OutputTypes"].map(|name| (name, Vec::new()));
-    let mut connects = Vec::new();
     for (index, (binding, catalog)) in contracts.iter().enumerate() {
         let mut methods = Vec::new();
         let mut calls = Vec::new();
@@ -187,19 +186,14 @@ pub(crate) fn generate(contracts: &BTreeMap<String, Catalog>) -> String {
                 ));
             }
         }
-        connects.push(format!("def mcp(name: _typing.Literal[{}], *, url: _builtins.str | None = ..., headers: _builtins.dict[_builtins.str, _builtins.str] | None = ...) -> _contextlib.AbstractAsyncContextManager[_App{index}]: ...", quoted(binding)));
-    }
-    if connects.is_empty() {
-        connects.push("def mcp(name: _typing.Never) -> _contextlib.AbstractAsyncContextManager[_builtins.object]: ...".into());
     }
     let mut sections = vec![
-        "import builtins as _builtins\nimport contextlib as _contextlib\nimport typing as _typing\n\nfrom mcp.types import InputResponses as _InputResponses, RequestParamsMeta as _RequestParamsMeta\n\nfrom .client import ToolCallError as ToolCallError, ToolResult as _ToolResult".into(),
+        "import builtins as _builtins\nimport typing as _typing\n\nfrom mcp.types import InputResponses as _InputResponses, RequestParamsMeta as _RequestParamsMeta\n\nfrom .client import ToolCallError as ToolCallError, ToolResult as _ToolResult".into(),
     ];
     sections.extend(emitter.shapes);
     sections.extend(
         exports.map(|(name, bindings)| block(&format!("class {name}:"), &bindings, "    ")),
     );
     sections.extend(clients);
-    sections.push(overloaded(connects, "").join("\n"));
     sections.join("\n\n") + "\n"
 }
