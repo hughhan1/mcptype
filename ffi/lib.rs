@@ -50,19 +50,16 @@ unsafe extern "C" fn mcptype_request_free(request: *mut Request) {
     }
 }
 
-#[unsafe(no_mangle)]
-unsafe extern "C" fn mcptype_compile(request: *const Request) -> Response {
+fn execute(
+    request: *const Request,
+    operation: impl FnOnce(&Request) -> Result<String, mcptype::Error>,
+) -> Response {
     let request = unsafe { &*request };
-    let result = catch_unwind(AssertUnwindSafe(|| {
-        let input = serde_json::from_slice(&request.input)?;
-        let generated = mcptype::compile_cancellable(input, &request.cancelled)?;
-        Ok::<_, mcptype::Error>(serde_json::to_vec(&generated)?)
-    }));
-    let (status, bytes) = match result {
-        Ok(Ok(bytes)) => (Status::Ok, bytes),
+    let (status, bytes) = match catch_unwind(AssertUnwindSafe(|| operation(request))) {
+        Ok(Ok(output)) => (Status::Ok, output.into_bytes()),
         Ok(Err(mcptype::Error::Cancelled)) => (Status::Cancelled, Vec::new()),
         Ok(Err(error)) => (Status::Error, error.to_string().into_bytes()),
-        Err(_) => (Status::Error, b"mcptype compiler panicked".to_vec()),
+        Err(_) => (Status::Error, b"mcptype panicked".to_vec()),
     };
     let output = unsafe { &mut *request.output.get() };
     *output = bytes;
@@ -71,6 +68,23 @@ unsafe extern "C" fn mcptype_compile(request: *const Request) -> Response {
         data: output.as_ptr(),
         len: output.len(),
     }
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn mcptype_compile(request: *const Request) -> Response {
+    execute(request, |request| {
+        mcptype::json::compile(&request.input, &request.cancelled)
+    })
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn mcptype_canonical(request: *const Request) -> Response {
+    execute(request, |request| mcptype::json::canonical(&request.input))
+}
+
+#[unsafe(no_mangle)]
+unsafe extern "C" fn mcptype_changes(request: *const Request) -> Response {
+    execute(request, |request| mcptype::json::changes(&request.input))
 }
 
 #[cfg(test)]

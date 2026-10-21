@@ -1,19 +1,47 @@
-use mcptype::{Catalog, Language, Request, compile};
-use serde_json::json;
-use std::collections::BTreeMap;
+use mcptype::{Language, compile};
+use serde_json::{Value, json};
+
+fn compile_contracts(
+    language: Language,
+    contracts: Value,
+) -> Result<mcptype::Generated, mcptype::Error> {
+    compile(serde_json::from_value(
+        json!({"language": language, "contracts": contracts}),
+    )?)
+}
 
 #[test]
-fn invalid_catalogs_are_rejected_before_generation() {
+fn invalid_contracts_are_rejected_before_generation() {
     let tool = json!({"name":"read", "inputSchema":{"type":"object"}});
-    for value in [
-        json!({"tools":[tool.clone(),tool.clone()]}),
-        json!({"tools":[{"name":"", "inputSchema":{"type":"object"}}]}),
-        json!({"tools":[{"name":"read", "inputSchema":{"type":"string"}}]}),
-        json!({"tools":[{"name":"read", "inputSchema":{"type":"object"}, "outputSchema":null}]}),
-        json!({"tools":[{"name":"read", "inputSchema":{"type":"object", "properties":{"x":{"$ref":"https://example.com/schema"}}}}]}),
-        json!({"tools":[{"name":"read", "inputSchema":{"type":"object", "properties":{"x":{"$ref":"#/$defs/missing"}}}}]}),
+    for (contracts, message) in [
+        (json!({"":{"tools":[]}}), "binding names must be nonempty"),
+        (
+            json!({"files":{"tools":[tool.clone(), tool.clone()]}}),
+            "tool names must be nonempty and unique",
+        ),
+        (
+            json!({"files":{"tools":[{"name":"", "inputSchema":{"type":"object"}}]}}),
+            "tool names must be nonempty and unique",
+        ),
+        (
+            json!({"files":{"tools":[{"name":"read", "inputSchema":{"type":"string"}}]}}),
+            "read: inputSchema must have type object",
+        ),
+        (
+            json!({"files":{"tools":[{"name":"read", "inputSchema":{"type":"object"}, "outputSchema":null}]}}),
+            "invalid type: null, expected a map",
+        ),
+        (
+            json!({"files":{"tools":[{"name":"read", "inputSchema":{"type":"object", "properties":{"x":{"$ref":"https://example.com/schema"}}}}]}}),
+            "external schema reference is unsupported",
+        ),
+        (
+            json!({"files":{"tools":[{"name":"read", "inputSchema":{"type":"object", "properties":{"x":{"$ref":"#/$defs/missing"}}}}]}}),
+            "unresolved schema reference",
+        ),
     ] {
-        assert!(Catalog::try_from(value).is_err());
+        let error = compile_contracts(Language::TypeScript, contracts).unwrap_err();
+        assert!(error.to_string().contains(message), "{error}");
     }
 }
 
@@ -30,33 +58,17 @@ fn go_types_preserve_json_and_compile() {
     },"required":["name","count","labels","open","item"],"$defs":{
         "Item":{"type":"object","additionalProperties":false,"properties":{"id":{"type":"string"}},"required":["id"]}
     }});
-    let mut contracts = BTreeMap::from([
-        (
-            "orders".into(),
-            json!({"tools":[{"name":"get_order","inputSchema":schema,"outputSchema":{"type":"object"}}]}),
-        ),
-        (
-            "orders!".into(),
-            json!({"tools":[{"name":"get-order","inputSchema":{"type":"object"}},{"name":"get_order","inputSchema":{"type":"object"}}]}),
-        ),
-    ]);
-    let generated = compile(Request {
-        language: Language::Go,
-        contracts: contracts.clone(),
-    })
+    let generated = compile_contracts(
+        Language::Go,
+        json!({
+            "orders":{"tools":[{"name":"get_order","inputSchema":schema,"outputSchema":{"type":"object"}}]},
+            "orders!":{"tools":[
+                {"name":"get-order","inputSchema":{"type":"object"}},
+                {"name":"get_order","inputSchema":{"type":"object"}}
+            ]}
+        }),
+    )
     .unwrap();
-    for catalog in contracts.values_mut() {
-        catalog["tools"].as_array_mut().unwrap().reverse();
-    }
-    let reordered = compile(Request {
-        language: Language::Go,
-        contracts,
-    })
-    .unwrap();
-    assert_eq!(
-        serde_json::to_value(&generated).unwrap(),
-        serde_json::to_value(reordered).unwrap()
-    );
     let bindings = generated.bindings.as_ref().unwrap();
     assert_ne!(bindings["orders"].name, bindings["orders!"].name);
     assert_ne!(
@@ -87,7 +99,7 @@ func TestContract(t *testing.T) {
     decoded=nil
     if err:=json.Unmarshal(roundtrip,&decoded);err!=nil{t.Fatal(err)}
     if _,ok:=decoded["nullable"];ok{t.Fatal("absent nullable became null")}
-    if _,ok:=decoded["enabled"];ok{t.Fatal("absent bool became false")}
+    if _,ok:=decoded["enabled"];ok{t.Fatal("absent enabled became false")}
 }
 "#).unwrap();
     let result = std::process::Command::new("go")
@@ -102,5 +114,29 @@ func TestContract(t *testing.T) {
         "{}\n{}",
         String::from_utf8_lossy(&result.stdout),
         String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+#[test]
+fn declarations_are_plain_modules_without_runtime_clients() {
+    let contracts = json!({"files":{"tools":[{"name":"read", "inputSchema":{"type":"object"}}]}});
+    let typescript = compile_contracts(Language::TypeScript, contracts.clone())
+        .unwrap()
+        .declarations;
+    assert!(
+        typescript.starts_with("export interface Inputs {"),
+        "{typescript}"
+    );
+    assert!(!typescript.contains("mcptype"), "{typescript}");
+    let python = compile_contracts(Language::Python, contracts)
+        .unwrap()
+        .declarations;
+    assert!(
+        python.contains("class _Clients(_typing.Protocol):"),
+        "{python}"
+    );
+    assert!(
+        !python.contains("def mcp(") && !python.contains("from mcp"),
+        "{python}"
     );
 }

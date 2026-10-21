@@ -1,14 +1,15 @@
 [package]
 name = "mcptype-node"
-version = "0.0.1"
+version = "0.0.2"
 edition = "2024"
 
 [lib]
+path = "lib.rs"
 crate-type = ["cdylib"]
 test = false
 
 [dependencies]
-mcptype = { path = "../..", default-features = false }
+mcptype = { path = "..", default-features = false }
 napi = { version = "3", default-features = false, features = ["napi8"] }
 napi-derive = "3"
 
