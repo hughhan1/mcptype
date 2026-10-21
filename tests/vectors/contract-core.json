@@ -24,6 +24,21 @@
                 "a"
               ],
               "description": "sender"
+            },
+            "y": {
+              "not": {
+                "type": "string",
+                "$comment": "ignored"
+              }
+            }
+          },
+          "dependentSchemas": {
+            "description": {
+              "required": [
+                "b",
+                "a"
+              ],
+              "$comment": "ignored"
             }
           }
         }
@@ -48,10 +63,23 @@
             },
             "to": {
               "type": "string"
+            },
+            "y": {
+              "not": {
+                "type": "string"
+              }
+            }
+          },
+          "dependentSchemas": {
+            "description": {
+              "required": [
+                "a",
+                "b"
+              ]
             }
           }
         },
-        "digest": "sha256:115cc0c081e902a0d8c26f665a1f1afb5ae99ab2ef236b2e1297611d03de523c"
+        "digest": "sha256:4446cc9118aafd207213d325352d5c2f263b08fff34b5845f754f7edf950005f"
       }
     },
     {
