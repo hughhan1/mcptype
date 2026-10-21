@@ -5,39 +5,20 @@
   "type": "module",
   "license": "MIT",
   "exports": {
-    ".": {
-      "types": "./typescript/index.d.ts",
-      "import": "./typescript/index.mjs"
-    },
     "./compiler": {
       "types": "./typescript/compiler.d.ts",
       "import": "./typescript/compiler.mjs"
     }
   },
   "files": [
-    "typescript/index.mjs",
-    "typescript/index.d.ts",
     "typescript/compiler.mjs",
     "typescript/compiler.d.ts",
     "LICENSE",
     "native"
   ],
-  "engines": {
-    "node": ">=22"
-  },
+  "engines": {"node": ">=22"},
   "scripts": {
     "test": "node --test typescript/test/*.test.mjs",
     "prepare": "node typescript/build.mjs"
-  },
-  "dependencies": {
-    "@modelcontextprotocol/client": "2.3.1",
-    "ajv": "8.20.0",
-    "ajv-formats": "3.0.1"
-  },
-  "devDependencies": {
-    "@modelcontextprotocol/node": "2.1.1",
-    "@modelcontextprotocol/server": "2.3.1",
-    "typescript": "5.9.3",
-    "zod": "^4.6.5"
   }
 }

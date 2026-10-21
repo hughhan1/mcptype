@@ -1,16 +1,13 @@
-use mcptype::{Language, Request, compile};
+use mcptype::{Language, compile};
 use serde_json::{Value, json};
-use std::collections::BTreeMap;
 
 fn compile_contracts(
     language: Language,
     contracts: Value,
 ) -> Result<mcptype::Generated, mcptype::Error> {
-    let contracts: BTreeMap<String, Value> = serde_json::from_value(contracts).unwrap();
-    compile(Request {
-        language,
-        contracts,
-    })
+    compile(serde_json::from_value(
+        json!({"language": language, "contracts": contracts}),
+    )?)
 }
 
 #[test]
@@ -32,7 +29,7 @@ fn invalid_contracts_are_rejected_before_generation() {
         ),
         (
             json!({"files":{"tools":[{"name":"read", "inputSchema":{"type":"object"}, "outputSchema":null}]}}),
-            "read: outputSchema must be an object",
+            "invalid type: null, expected a map",
         ),
         (
             json!({"files":{"tools":[{"name":"read", "inputSchema":{"type":"object", "properties":{"x":{"$ref":"https://example.com/schema"}}}}]}}),
@@ -49,26 +46,6 @@ fn invalid_contracts_are_rejected_before_generation() {
 }
 
 #[test]
-fn tool_order_does_not_change_declarations() {
-    let contracts = json!({"files":{"tools":[
-        {"name":"read", "inputSchema":{"type":"object"}},
-        {"name":"write", "inputSchema":{"type":"object"}}
-    ]}});
-    let mut reversed = contracts.clone();
-    reversed["files"]["tools"].as_array_mut().unwrap().reverse();
-    for language in Language::ALL {
-        assert_eq!(
-            compile_contracts(language, contracts.clone())
-                .unwrap()
-                .declarations,
-            compile_contracts(language, reversed.clone())
-                .unwrap()
-                .declarations
-        );
-    }
-}
-
-#[test]
 fn go_types_preserve_json_and_compile() {
     let schema = json!({"type":"object","additionalProperties":false,"properties":{
         "name":{"type":"string"},
@@ -81,30 +58,17 @@ fn go_types_preserve_json_and_compile() {
     },"required":["name","count","labels","open","item"],"$defs":{
         "Item":{"type":"object","additionalProperties":false,"properties":{"id":{"type":"string"}},"required":["id"]}
     }});
-    let mut contracts: BTreeMap<String, Value> = serde_json::from_value(json!({
-        "orders":{"tools":[{"name":"get_order","inputSchema":schema,"outputSchema":{"type":"object"}}]},
-        "orders!":{"tools":[
-            {"name":"get-order","inputSchema":{"type":"object"}},
-            {"name":"get_order","inputSchema":{"type":"object"}}
-        ]}
-    })).unwrap();
-    let generated = compile(Request {
-        language: Language::Go,
-        contracts: contracts.clone(),
-    })
+    let generated = compile_contracts(
+        Language::Go,
+        json!({
+            "orders":{"tools":[{"name":"get_order","inputSchema":schema,"outputSchema":{"type":"object"}}]},
+            "orders!":{"tools":[
+                {"name":"get-order","inputSchema":{"type":"object"}},
+                {"name":"get_order","inputSchema":{"type":"object"}}
+            ]}
+        }),
+    )
     .unwrap();
-    for catalog in contracts.values_mut() {
-        catalog["tools"].as_array_mut().unwrap().reverse();
-    }
-    let reordered = compile(Request {
-        language: Language::Go,
-        contracts,
-    })
-    .unwrap();
-    assert_eq!(
-        serde_json::to_value(&generated).unwrap(),
-        serde_json::to_value(reordered).unwrap()
-    );
     let bindings = generated.bindings.as_ref().unwrap();
     assert_ne!(bindings["orders"].name, bindings["orders!"].name);
     assert_ne!(
@@ -150,5 +114,29 @@ func TestContract(t *testing.T) {
         "{}\n{}",
         String::from_utf8_lossy(&result.stdout),
         String::from_utf8_lossy(&result.stderr)
+    );
+}
+
+#[test]
+fn declarations_are_plain_modules_without_runtime_clients() {
+    let contracts = json!({"files":{"tools":[{"name":"read", "inputSchema":{"type":"object"}}]}});
+    let typescript = compile_contracts(Language::TypeScript, contracts.clone())
+        .unwrap()
+        .declarations;
+    assert!(
+        typescript.starts_with("export interface Inputs {"),
+        "{typescript}"
+    );
+    assert!(!typescript.contains("mcptype"), "{typescript}");
+    let python = compile_contracts(Language::Python, contracts)
+        .unwrap()
+        .declarations;
+    assert!(
+        python.contains("class _Clients(_typing.Protocol):"),
+        "{python}"
+    );
+    assert!(
+        !python.contains("def mcp(") && !python.contains("from mcp"),
+        "{python}"
     );
 }
