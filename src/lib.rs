@@ -1,8 +1,14 @@
+pub mod canonical;
+pub mod changes;
+pub mod contract;
 mod go;
 mod python;
 mod schema;
 mod typescript;
 
+pub use canonical::{canonical, canonical_contract, canonical_json, digest};
+pub use changes::{Change, changes, changes_json};
+pub use contract::{Contract, Expectation, Identity, Metadata, Resource, Schema, Tool};
 pub use go::{Binding as GoBinding, Tool as GoTool};
 
 use serde::{Deserialize, Serialize};
@@ -73,10 +79,10 @@ pub struct Generated {
 }
 
 struct Catalog {
-    tools: BTreeMap<String, Tool>,
+    tools: BTreeMap<String, CompiledTool>,
 }
 
-struct Tool {
+struct CompiledTool {
     input: schema::Shape,
     output: schema::Shape,
 }
@@ -125,7 +131,7 @@ impl Catalog {
                     )));
                 }
             };
-            tools.insert(tool.name, Tool { input, output });
+            tools.insert(tool.name, CompiledTool { input, output });
         }
         Ok(Self { tools })
     }

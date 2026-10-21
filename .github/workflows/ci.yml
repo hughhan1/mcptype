@@ -25,6 +25,7 @@ jobs:
       - run: cargo clippy --locked --workspace --all-targets -- -D warnings
       - run: cargo test --locked
       - run: cargo build --locked --release --bin mcptype
+      - run: cargo run --locked --quiet -- schema contract | diff -u schema/contract.schema.json -
       - run: npm ci
       - run: npm test
       - run: mkdir -p dist && npm pack --ignore-scripts --pack-destination dist

@@ -6,4 +6,14 @@ mod _native {
     fn compile(input: &str) -> PyResult<String> {
         mcptype::compile_json(input).map_err(|error| PyValueError::new_err(error.to_string()))
     }
+
+    #[pyfunction]
+    fn canonical(input: &str) -> PyResult<String> {
+        mcptype::canonical_json(input).map_err(|error| PyValueError::new_err(error.to_string()))
+    }
+
+    #[pyfunction]
+    fn changes(input: &str) -> PyResult<String> {
+        mcptype::changes_json(input).map_err(|error| PyValueError::new_err(error.to_string()))
+    }
 }
