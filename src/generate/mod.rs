@@ -84,6 +84,15 @@ pub fn generate(request: GenerateRequest) -> Result<GeneratedPackage, Error> {
     Ok(GeneratedPackage { files })
 }
 
+impl GenerateRequest {
+    /// Declared aliases without a contract: their clients call tools by name, unvalidated.
+    fn untyped(&self) -> impl Iterator<Item = &String> {
+        self.requires
+            .keys()
+            .filter(|alias| !self.contracts.contains_key(*alias))
+    }
+}
+
 fn relative(path: &str) -> bool {
     !path.starts_with('/') && path.split('/').all(|part| !matches!(part, "" | "." | ".."))
 }

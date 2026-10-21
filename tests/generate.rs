@@ -10,7 +10,7 @@ use std::{
 };
 
 const PROTOCOL: &str = "type AuthProvider = { token(): Promise<string> };
-type ToolClient<I, O, R> = { tools: { [K in keyof I]: (input: I[K]) => Promise<K extends keyof O ? O[K] : unknown> }; resources: { [U in keyof R]: { read(): Promise<R[U]> } } };";
+type ToolClient<I, O, R> = { tools: { [K in keyof I]: (input: I[K]) => Promise<K extends keyof O ? O[K] : unknown> }; resources: { [U in keyof R]: { read(): Promise<R[U]> } }; callTool<K extends keyof I & string>(request: { name: K; arguments: I[K] }): Promise<unknown> };";
 
 fn contracts() -> Value {
     let order = json!({"tools": [
@@ -108,6 +108,12 @@ createNodeApps({ mysql: { endpoint: new URL("https://mysql.example/mcp") } });
 // @ts-expect-error
 createApps({ missing: { endpoint: "https://missing.example/mcp" } });
 apps.empty;
+await apps.payments.callTool({ name: "charge", arguments: { amount: 1 } });
+// @ts-expect-error
+apps.payments.tools.charge;
+// @ts-expect-error
+apps.payments.resources["payments://summary"];
+createApps({ payments: { endpoint: "https://payments.example/mcp", scoped: true, fetch: async (input: string, init?: { method?: string }) => ({ input, init }) } }).payments.callTool({ name: "x", arguments: {} });
 "#).unwrap();
     run(
         &directory,
@@ -176,7 +182,9 @@ async def main() -> None:
     total: float = result["total"]
     create_apps({"orders": {"endpoint": "https://orders.example/mcp"}})
     await apps.orders.tools.get_order({"orderId": 1})  # type: ignore[typeddict-item]
-    print(total)
+    charged = await apps.payments.call_tool("charge", {"amount": 1})
+    apps.payments.tools  # type: ignore[attr-defined]
+    print(total, charged)
 "#,
     )
     .unwrap();

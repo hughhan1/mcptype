@@ -5,7 +5,7 @@ use crate::{
 use serde_json::Value;
 use std::collections::BTreeMap;
 
-fn identifier(name: &str) -> bool {
+pub(crate) fn identifier(name: &str) -> bool {
     name.chars().next().is_some_and(|c| c.is_ascii_alphabetic())
         && name.chars().all(|c| c.is_ascii_alphanumeric() || c == '_')
         && ![

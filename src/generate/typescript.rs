@@ -4,10 +4,10 @@ use crate::{Contract, Error, Language, Resource, Tool};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 
-const BINDING_TYPES: &str = r#"export interface EndpointBinding { endpoint: URL | string; authProvider?: AuthProvider; installationUID?: string }
+const BINDING_TYPES: &str = r#"export interface EndpointBinding { endpoint: URL | string; authProvider?: AuthProvider; fetch?: (input: never, init?: never) => Promise<unknown>; installationUID?: string; scoped?: boolean }
 export interface HostBinding { host: { callServerTool(params: { name: string; arguments?: Record<string, unknown> }, options?: { signal?: AbortSignal }): Promise<unknown>; readServerResource(params: { uri: string }, options?: { signal?: AbortSignal }): Promise<unknown> } }
 export interface CreateOptions { validator?: (schema: object) => (value: unknown) => boolean }
-export declare function createApps<K extends keyof Inputs>(bindings: { [A in K]: EndpointBinding | HostBinding }, options?: CreateOptions): Pick<Apps,K>;
+export declare function createApps<K extends keyof Apps>(bindings: { [A in K]: EndpointBinding | HostBinding }, options?: CreateOptions): Pick<Apps,K>;
 "#;
 
 const EXPOSE_TYPES: &str = r#"export interface ExposeOptions { signal?: AbortSignal; execute?: (name: string, args: Record<string, unknown>) => Promise<unknown> }
@@ -59,9 +59,10 @@ pub(super) fn generate(
     let protocol = request.protocol.as_deref().unwrap_or_default();
     let identity = serde_json::to_string(caller)?;
     let contracts = serde_json::to_string(contracts)?;
+    let untyped = untyped(request)?;
     let types = |resources: &str| {
         format!(
-            "import type {{ Outputs as Resources }} from \"./{resources}.js\";\n{protocol}\nexport type {{ Resources }};\n{tools}\nexport type Apps = {{ readonly [A in keyof Inputs]: ToolClient<Inputs[A], Outputs[A], Resources[A]> }};\n"
+            "import type {{ Outputs as Resources }} from \"./{resources}.js\";\n{protocol}\nexport type {{ Resources }};\n{tools}\nexport type Apps = {{ readonly [A in keyof Inputs]: ToolClient<Inputs[A], Outputs[A], Resources[A]> }}{untyped};\n"
         )
     };
     let bound = format!(
@@ -96,6 +97,26 @@ pub(super) fn generate(
             ("resources.d.ts", resources),
             ("package.json", package),
         ]),
+    })
+}
+
+/// Members for aliases without a contract: `callTool` and `listTools` by any name, no `tools` or `resources`.
+fn untyped(request: &GenerateRequest) -> Result<String, Error> {
+    let aliases = request
+        .untyped()
+        .map(|alias| {
+            Ok(format!(
+                " readonly {}: UntypedClient;",
+                serde_json::to_string(alias)?
+            ))
+        })
+        .collect::<Result<String, Error>>()?;
+    Ok(if aliases.is_empty() {
+        aliases
+    } else {
+        format!(
+            " & {{{aliases} }};\nexport type UntypedClient = Omit<ToolClient<Record<string, Record<string, unknown>>, Record<never, never>, Record<never, never>>, \"tools\"> & {{ readonly tools: Record<never, never> }}"
+        )
     })
 }
 
