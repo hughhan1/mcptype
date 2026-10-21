@@ -33,3 +33,11 @@ jobs:
       - run: for wheel in dist/*.whl; do uv pip install "${wheel}[test]"; done
       - run: uv run --no-project pytest
       - run: uv run --no-project mypy --strict python/mcptype
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.runner }}
+          path: |
+            dist/*.whl
+            typescript/native/*.node
+          if-no-files-found: error
+          retention-days: 7
