@@ -36,6 +36,24 @@ pub struct GenerateRequest {
     /// Node and browser: protocol declarations spliced into each `.d.ts` entry point.
     #[serde(default)]
     pub protocol: Option<String>,
+    /// Node: import the installed runtime instead of a copied runtime file.
+    #[serde(default)]
+    pub runtime_specifier: Option<String>,
+    /// Browser: import the installed runtime instead of a copied runtime file.
+    #[serde(default)]
+    pub browser_runtime_specifier: Option<String>,
+    /// Import protocol declarations instead of inlining `protocol`.
+    #[serde(default)]
+    pub protocol_specifier: Option<String>,
+    /// Python: normalized relative output path instead of `_apps.py`.
+    #[serde(default)]
+    pub python_module: Option<String>,
+    /// Python: absolute runtime import module instead of `.client`.
+    #[serde(default)]
+    pub python_runtime_module: Option<String>,
+    /// First-line comment on generated source files (not JSON or copied runtime files).
+    #[serde(default)]
+    pub banner: Option<String>,
     /// Extra `package.json` fields.
     #[serde(default)]
     pub package_fields: Map<String, Value>,
@@ -65,6 +83,7 @@ pub fn generate(request: GenerateRequest) -> Result<GeneratedPackage, Error> {
             "runtime path {path:?} must be relative and normalized"
         )));
     }
+    request.validate()?;
     let caller = Caller {
         name: &request.identity.name,
         version: &request.identity.version,
@@ -75,16 +94,75 @@ pub fn generate(request: GenerateRequest) -> Result<GeneratedPackage, Error> {
         Target::Python => python::generate(&request, &caller)?,
         Target::Go => go::generate(&request)?,
     };
-    let mut files = request.runtime;
-    files.extend(
-        generated
-            .into_iter()
-            .map(|(path, text)| (path.to_owned(), text.into_bytes())),
-    );
+    let mut files = request.runtime.clone();
+    for (path, mut text) in generated {
+        if let Some(banner) = &request.banner
+            && path != "package.json"
+        {
+            let comment = if path.ends_with(".py") { "#" } else { "//" };
+            text.insert_str(0, &format!("{comment} {banner}\n"));
+        }
+        files.insert(path.to_owned(), text.into_bytes());
+    }
     Ok(GeneratedPackage { files })
 }
 
 impl GenerateRequest {
+    fn validate(&self) -> Result<(), Error> {
+        if self.protocol.is_some() && self.protocol_specifier.is_some() {
+            return Err(Error::Contract(
+                "protocol and protocol_specifier are mutually exclusive".into(),
+            ));
+        }
+        for (name, value) in [
+            ("runtime_specifier", &self.runtime_specifier),
+            ("browser_runtime_specifier", &self.browser_runtime_specifier),
+            ("protocol_specifier", &self.protocol_specifier),
+            ("banner", &self.banner),
+        ] {
+            if let Some(value) = value
+                && (value.trim().is_empty()
+                    || value
+                        .chars()
+                        .any(|ch| ch.is_control() || matches!(ch, '\u{2028}' | '\u{2029}')))
+            {
+                return Err(Error::Contract(format!(
+                    "{name} must be nonempty and contain no line breaks or control characters"
+                )));
+            }
+        }
+        if let Some(path) = &self.python_module
+            && (!relative(path)
+                || path.contains(['\\', ':'])
+                || path.chars().any(char::is_control)
+                || !path.ends_with(".py"))
+        {
+            return Err(Error::Contract(
+                "python_module must be a relative, normalized .py path".into(),
+            ));
+        }
+        if let Some(module) = &self.python_runtime_module
+            && !module.split('.').all(|part| {
+                crate::python::identifier(part)
+                    || (part.starts_with('_')
+                        && part
+                            .chars()
+                            .all(|ch| ch.is_ascii_alphanumeric() || ch == '_'))
+            })
+        {
+            return Err(Error::Contract(
+                "python_runtime_module must be an absolute Python module name".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn slot(&self) -> bool {
+        self.runtime_specifier.is_some()
+            || self.browser_runtime_specifier.is_some()
+            || self.python_module.is_some()
+    }
+
     /// Declared aliases without a contract: their clients call tools by name, unvalidated.
     fn untyped(&self) -> impl Iterator<Item = &String> {
         self.requires

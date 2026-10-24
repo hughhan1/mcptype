@@ -28,8 +28,24 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: mkdir -p dist && npm pack --ignore-scripts --pack-destination dist
-      - run: uv build --wheel --out-dir dist
+      - if: runner.os == 'macOS'
+        run: uv build --wheel --out-dir dist
+      - if: runner.os == 'Linux'
+        run: |
+          arch=$(if [ "$RUNNER_ARCH" = ARM64 ]; then echo arm64; else echo amd64; fi)
+          docker buildx build --platform "linux/$arch" --file packaging/Dockerfile --output type=local,dest=dist .
+      - run: |
+          target=$(rustc -vV | sed -n 's/^host: //p')
+          python3 ffi/package-sdk.py dist/sdk "$target"
+          tar -czf "dist/mcptype-sdk-$RUNNER_OS-$RUNNER_ARCH.tar.gz" -C dist/sdk .
       - run: uv venv
       - run: for wheel in dist/*.whl; do uv pip install "${wheel}[test]"; done
       - run: uv run --no-project pytest
       - run: uv run --no-project mypy --strict python/mcptype
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mcptype-${{ matrix.runner }}
+          path: |
+            dist/*.tgz
+            dist/*.whl
+            dist/*.tar.gz

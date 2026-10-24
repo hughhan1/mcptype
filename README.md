@@ -67,6 +67,27 @@ println!("{}", generated.declarations);
 
 `requires` lists every dependency the caller declares; `contracts` holds the typed subset. Generated `createApps(bindings, options)` accepts `options.validator`, a function from a JSON Schema to a predicate, for hosts that precompile validators. Over JSON, `runtime` and the returned `files` values are base64; the Node and Python wrappers accept strings or bytes and return bytes.
 
+### Installed runtime slots
+
+All slot options are optional. Without them, output is byte-identical to 0.0.5.
+`runtime_specifier` and `browser_runtime_specifier` select the JavaScript runtime
+imports. `protocol_specifier` imports protocol types and re-exports `ToolCallError`
+from an installed module; it cannot be combined with inline `protocol`.
+`python_module` selects a normalized relative `.py` output path, and
+`python_runtime_module` selects an absolute Python module such as `holon.client`.
+
+For example, generate into an installed package's `generated/` directory with
+`runtime_specifier: "../runtime.mjs"`,
+`browser_runtime_specifier: "../browser-runtime.mjs"`, and
+`protocol_specifier: "../protocol.js"`. For a Python namespace portion, pass
+`python_module: "holon/apps/__init__.py"` and
+`python_runtime_module: "holon.client"`; no `holon/__init__.py` is generated.
+
+JavaScript runtime specifiers or `python_module` select slot output, which omits
+`package.json`. `banner` adds a first-line comment to each generated source file;
+JSON metadata remains valid JSON, and supplied runtime files stay verbatim.
+Banners and JavaScript specifiers must be nonempty single-line strings.
+
 ## Node and Python bindings
 
 The Node binding exports `compile`, `canonical`, `changes`, and `generate` from `mcptype/compiler`:

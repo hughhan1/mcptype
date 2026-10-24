@@ -18,10 +18,10 @@ from .client import ToolResult as _ToolResult";
 const UNTYPED: &str = "class _Untyped(_typing.Protocol):
     async def call_tool(self, name: _builtins.str, arguments: _typing.Mapping[_builtins.str, _builtins.object], *, timeout: _builtins.float | None = ..., input_responses: _InputResponses | None = ..., request_state: _builtins.str | None = ..., meta: _RequestParamsMeta | None = ...) -> _ToolResult[_builtins.object]: ...";
 
-pub(super) fn generate(
-    request: &GenerateRequest,
+pub(super) fn generate<'a>(
+    request: &'a GenerateRequest,
     caller: &Caller,
-) -> Result<BTreeMap<&'static str, String>, Error> {
+) -> Result<BTreeMap<&'a str, String>, Error> {
     let declarations = declarations(Language::Python, &request.contracts)?.declarations;
     let payload = ascii(&serde_json::to_string(&(caller, &request.contracts))?);
     let untyped: Vec<_> = request
@@ -36,19 +36,35 @@ pub(super) fn generate(
         let clients = format!("class _AllClients(_Clients, _typing.Protocol):{members}");
         ("_AllClients", format!("\n{UNTYPED}\n\n{clients}\n"))
     };
+    let header = HEADER.replace(
+        "from .client import",
+        &format!(
+            "from {} import",
+            request
+                .python_runtime_module
+                .as_deref()
+                .unwrap_or(".client")
+        ),
+    );
     let module = [
-        HEADER,
+        header.as_str(),
         &(declarations + &untyped),
         &format!("_identity, _contracts = _json.loads({})", repr(&payload)),
         &format!("apps = _typing.cast({clients}, _Apps(_identity, _contracts))"),
         &format!("def create_apps(bindings: _typing.Mapping[str, _Binding]) -> {clients}:\n    return _typing.cast({clients}, _Apps(_identity, _contracts, bindings))"),
     ]
     .join("\n\n");
-    let fields = Value::Object(request.package_fields.clone());
-    Ok(BTreeMap::from([
-        ("_apps.py", module + "\n"),
-        ("package.json", dumps(&fields)),
-    ]))
+    let mut files = BTreeMap::from([(
+        request.python_module.as_deref().unwrap_or("_apps.py"),
+        module + "\n",
+    )]);
+    if !request.slot() {
+        files.insert(
+            "package.json",
+            dumps(&Value::Object(request.package_fields.clone())),
+        );
+    }
+    Ok(files)
 }
 
 /// Python's `json.dumps` with `ensure_ascii` and its default separators.

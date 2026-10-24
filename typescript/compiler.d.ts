@@ -27,6 +27,12 @@ export interface GenerateRequest {
   /** Files copied into the package verbatim; strings are written as UTF-8. */
   runtime?: Record<string, string | Uint8Array>;
   protocol?: string;
+  runtime_specifier?: string;
+  browser_runtime_specifier?: string;
+  protocol_specifier?: string;
+  python_module?: string;
+  python_runtime_module?: string;
+  banner?: string;
   package_fields?: Record<string, unknown>;
   go_module?: string;
 }

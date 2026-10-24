@@ -31,3 +31,18 @@ test("Node generate encodes runtime files and returns package bytes", async () =
   assert.equal(files["package.json"].toString(), '{"holon": "marker"}');
   await assert.rejects(generate({ target: "go", identity: { name: "a", version: "1" } }), /go_module is required/);
 });
+
+
+test("Node generate returns only slot sources with external runtime and protocol", async () => {
+  const { files } = await generate({
+    target: "browser",
+    identity: { name: "checkout", version: "1" },
+    browser_runtime_specifier: "../browser-runtime.mjs",
+    protocol_specifier: "../protocol.js",
+    banner: "holon-generated-apps-v1 app=checkout",
+  });
+  assert.deepStrictEqual(Object.keys(files).sort(), ["browser-resources.d.ts", "browser.d.ts", "browser.js"]);
+  assert.ok(files["browser.js"].toString().startsWith("// holon-generated-apps-v1 app=checkout\n"));
+  assert.match(files["browser.js"].toString(), /from "\.\.\/browser-runtime\.mjs"/);
+  assert.match(files["browser.d.ts"].toString(), /from "\.\.\/protocol\.js"/);
+});
