@@ -14,7 +14,7 @@ libs = "-lSystem -lc -lm" if "apple" in target else "-ldl -lpthread -lm"
 (output / "lib/pkgconfig/mcptype.pc").write_text(f"""prefix=${{pcfiledir}}/../..
 Name: mcptype
 Description: MCP contract compiler
-Version: 0.0.5
+Version: 0.0.6
 Libs: -L${{prefix}}/lib -lmcptype {libs}
 Cflags: -I${{prefix}}/include
 """)

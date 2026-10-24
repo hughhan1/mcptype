@@ -56,7 +56,15 @@ pub(super) fn generate(
     let tools = declarations(Language::TypeScript, contracts)?.declarations;
     let resources =
         declarations(Language::TypeScript, &resource_contracts(contracts))?.declarations;
-    let protocol = request.protocol.as_deref().unwrap_or_default();
+    let protocol = match &request.protocol_specifier {
+        Some(specifier) => {
+            let specifier = serde_json::to_string(specifier)?;
+            format!(
+                "import type {{ AuthProvider, CallOptions, CallMetadata, ToolResult, ToolClient }} from {specifier};\nexport {{ ToolCallError }} from {specifier};"
+            )
+        }
+        None => request.protocol.clone().unwrap_or_default(),
+    };
     let identity = serde_json::to_string(caller)?;
     let contracts = serde_json::to_string(contracts)?;
     let untyped = untyped(request)?;
@@ -68,26 +76,37 @@ pub(super) fn generate(
     let bound = format!(
         "export function createApps(bindings,options){{return bindApps({identity},{contracts},bindings,options)}}\n"
     );
-    let package = package(&request.package_fields)?;
-    Ok(match request.target {
+    let runtime = serde_json::to_string(
+        request
+            .runtime_specifier
+            .as_deref()
+            .unwrap_or("./runtime.mjs"),
+    )?;
+    let browser_runtime = serde_json::to_string(
+        request
+            .browser_runtime_specifier
+            .as_deref()
+            .unwrap_or("./browser-runtime.mjs"),
+    )?;
+    let mut files = match request.target {
         Target::Browser => BTreeMap::from([
             (
                 "browser.js",
-                "import { bindApps } from \"./browser-runtime.mjs\";\nexport {ToolCallError, exposeTools, registerPageTools} from \"./browser-runtime.mjs\";\n".to_owned()
-                    + &bound,
+                format!(
+                    "import {{ bindApps }} from {browser_runtime};\nexport {{ToolCallError, exposeTools, registerPageTools}} from {browser_runtime};\n{bound}"
+                ),
             ),
             (
                 "browser.d.ts",
                 types("browser-resources") + BINDING_TYPES + EXPOSE_TYPES,
             ),
             ("browser-resources.d.ts", resources),
-            ("package.json", package),
         ]),
         _ => BTreeMap::from([
             (
                 "index.js",
                 format!(
-                    "import {{ createApps as create, bindApps }} from \"./runtime.mjs\";\nexport {{ ToolCallError }} from \"./runtime.mjs\";\nexport const apps = create({identity}, {contracts});\n{bound}"
+                    "import {{ createApps as create, bindApps }} from {runtime};\nexport {{ ToolCallError }} from {runtime};\nexport const apps = create({identity}, {contracts});\n{bound}"
                 ),
             ),
             (
@@ -95,9 +114,12 @@ pub(super) fn generate(
                 types("resources") + "export declare const apps: Apps;\n" + BINDING_TYPES,
             ),
             ("resources.d.ts", resources),
-            ("package.json", package),
         ]),
-    })
+    };
+    if !request.slot() {
+        files.insert("package.json", package(&request.package_fields)?);
+    }
+    Ok(files)
 }
 
 /// Members for aliases without a contract: `callTool` and `listTools` by any name, no `tools` or `resources`.
